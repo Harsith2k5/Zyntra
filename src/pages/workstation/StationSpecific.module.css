@@ -1,0 +1,456 @@
+.dashboardContainer {
+    font-family: 'Inter', sans-serif;
+    background-color: #111111;
+    color: #E0E0E0;
+    min-height: 100vh;
+    padding: 40px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+}
+
+.dashboardContainer::-webkit-scrollbar {
+    width: 8px;
+}
+
+.dashboardContainer::-webkit-scrollbar-track {
+    background: #111111;
+    border-radius: 10px;
+}
+
+.dashboardContainer::-webkit-scrollbar-thumb {
+    background-color: #00E6A2;
+    border-radius: 10px;
+    border: 2px solid #111111;
+}
+
+.dashboardContainer {
+    scrollbar-width: thin;
+    scrollbar-color: #00E6A2 #111111;
+}
+
+.dashboardTitle {
+    font-size: 3em;
+    font-weight: 800;
+    color: #00E6A2;
+    text-shadow: 0 0 15px rgba(0, 230, 162, 0.8), 0 0 30px rgba(0, 230, 162, 0.6);
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    text-align: center;
+}
+
+.icon {
+    font-size: 0.9em;
+    vertical-align: middle;
+    color: #00E6A2;
+    text-shadow: 0 0 10px rgba(0, 230, 162, 0.6), 0 0 20px rgba(0, 230, 162, 0.4);
+}
+
+.infoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    width: 100%;
+    max-width: 1200px;
+    margin-bottom: 40px;
+}
+
+.card {
+    background-color: #212121;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 0 20px rgba(0, 230, 162, 0.3);
+    border: 1px solid rgba(0, 230, 162, 0.4);
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0 20px rgba(0, 230, 162, 0.8);
+}
+
+.cardTitle {
+    font-size: 1.8em;
+    font-weight: 700;
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #00E6A2;
+    text-shadow: 0 0 6px rgba(0, 230, 162, 0.4), 0 0 10px rgba(0, 230, 162, 0.3);
+    border-bottom: 2px solid #00E6A2;
+    padding-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.cardText {
+    font-size: 1.5em;
+    font-weight: 600;
+    margin-bottom: 15px;
+    line-height: 1.2;
+    color: #E0E0E0;
+}
+
+.mapPlaceholder {
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px dashed #00E6A2;
+    border-radius: 10px;
+    height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 20px;
+    color: #00E6A2;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.mapPlaceholder:hover {
+    background-color: rgba(0, 230, 162, 0.1);
+    box-shadow: 0 0 15px rgba(0, 230, 162, 0.4);
+}
+
+.mapIcon {
+    font-size: 3em;
+    margin-bottom: 10px;
+}
+
+/* Health status colors */
+.healthExcellent {
+    border-color: #00E6A2;
+    box-shadow: 0 0 20px rgba(0, 230, 162, 0.3);
+}
+
+.healthGood {
+    border-color: #0099DD;
+    box-shadow: 0 0 20px rgba(0, 153, 221, 0.3);
+}
+
+.healthFair {
+    border-color: #FFC107;
+    box-shadow: 0 0 20px rgba(255, 193, 7, 0.3);
+}
+
+.healthPoor {
+    border-color: #DC3545;
+    box-shadow: 0 0 20px rgba(220, 53, 69, 0.3);
+}
+
+.healthIndicator {
+    margin: 20px 0;
+}
+
+.healthBar {
+    width: 100%;
+    height: 15px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+.healthBarFill {
+    height: 100%;
+    border-radius: 10px;
+    background-color: #00E6A2;
+    box-shadow: 0 0 10px #00E6A2;
+    transition: width 0.5s ease-in-out;
+}
+
+.subText {
+    font-size: 0.9em;
+    color: rgba(224, 224, 224, 0.7);
+    margin-bottom: 15px;
+}
+
+.maintenanceDate {
+    font-size: 2em;
+    font-weight: 700;
+    color: #00E6A2;
+    margin: 10px 0;
+}
+
+.actionButton {
+    background-color: #00E6A2;
+    color: #111111;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 15px;
+    box-shadow: 0 0 15px rgba(0, 230, 162, 0.8);
+}
+
+.actionButton:hover {
+    background-color: #00E6A2;
+    box-shadow: 0 0 25px rgba(0, 230, 162, 1);
+    transform: translateY(-2px);
+}
+
+.section {
+    background-color: #212121;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 0 20px rgba(0, 230, 162, 0.3);
+    border: 1px solid rgba(0, 230, 162, 0.4);
+    width: 100%;
+    max-width: 1200px;
+    box-sizing: border-box;
+    margin-bottom: 40px;
+}
+
+.sectionTitle {
+    font-size: 2em;
+    font-weight: 700;
+    color: #00E6A2;
+    text-shadow: 0 0 10px rgba(0, 230, 162, 0.6), 0 0 20px rgba(0, 230, 162, 0.4);
+    border-bottom: 2px solid #00E6A2;
+    padding-bottom: 10px;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.batteriesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.batteryCard {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid rgba(0, 230, 162, 0.3);
+    transition: all 0.3s ease;
+}
+
+.batteryCard:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0 15px rgba(0, 230, 162, 0.4);
+}
+
+.batteryTitle {
+    font-size: 1.3em;
+    color: #00E6A2;
+    margin-top: 0;
+    margin-bottom: 15px;
+    border-bottom: 1px solid rgba(0, 230, 162, 0.3);
+    padding-bottom: 10px;
+}
+
+.batteryInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.batteryInfoItem {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1em;
+}
+
+.infoLabel {
+    font-weight: 600;
+    color: #00E6A2;
+}
+
+.batteryHealth {
+    color: #00E6A2;
+    font-weight: 700;
+}
+
+.hazardsList {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.hazardItem {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 5px solid;
+    transition: all 0.3s ease;
+}
+
+.hazardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.hazardType {
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+.hazardSeverity {
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.hazardDetails {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(224, 224, 224, 0.8);
+    margin-bottom: 15px;
+}
+
+.hazardIcon {
+    font-size: 0.9em;
+}
+
+.hazardActions {
+    display: flex;
+    gap: 10px;
+}
+
+.hazardButton {
+    background-color: transparent;
+    border: 1px solid;
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.hazardButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 10px currentColor;
+}
+
+.noHazards {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px;
+    color: rgba(224, 224, 224, 0.6);
+    border: 1px dashed rgba(224, 224, 224, 0.3);
+    border-radius: 10px;
+}
+
+.infoIcon {
+    font-size: 1.5em;
+    color: #00E6A2;
+}
+
+/* Severity colors */
+.severityHigh {
+    border-left-color: #DC3545;
+}
+
+.severityHigh .hazardSeverity {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: #DC3545;
+}
+
+.severityHigh .hazardButton {
+    border-color: #DC3545;
+    color: #DC3545;
+}
+
+.severityMedium {
+    border-left-color: #FFC107;
+}
+
+.severityMedium .hazardSeverity {
+    background-color: rgba(255, 193, 7, 0.2);
+    color: #FFC107;
+}
+
+.severityMedium .hazardButton {
+    border-color: #FFC107;
+    color: #FFC107;
+}
+
+.severityLow {
+    border-left-color: #0099DD;
+}
+
+.severityLow .hazardSeverity {
+    background-color: rgba(0, 153, 221, 0.2);
+    color: #0099DD;
+}
+
+.severityLow .hazardButton {
+    border-color: #0099DD;
+    color: #0099DD;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .dashboardTitle {
+        font-size: 2.5em;
+    }
+    .cardTitle {
+        font-size: 1.6em;
+    }
+    .cardText {
+        font-size: 1.3em;
+    }
+    .sectionTitle {
+        font-size: 1.8em;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboardContainer {
+        padding: 20px;
+    }
+    .dashboardTitle {
+        font-size: 2em;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .infoGrid {
+        grid-template-columns: 1fr;
+    }
+    .card {
+        padding: 20px;
+    }
+    .section {
+        padding: 20px;
+    }
+    .batteriesGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboardTitle {
+        font-size: 1.8em;
+    }
+    .cardTitle {
+        font-size: 1.4em;
+    }
+    .sectionTitle {
+        font-size: 1.5em;
+    }
+    .hazardActions {
+        flex-direction: column;
+    }
+    .hazardButton {
+        width: 100%;
+    }
+}
