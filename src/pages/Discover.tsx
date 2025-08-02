@@ -2902,7 +2902,7 @@ const darkMapStyles = [
 const MapWithChargingStations: React.FC = () => {
   const navigate = useNavigate();
   const auth = getAuth();
-  const mapsLoaded = useLoadGoogleMaps("YOUR_Maps_API_KEY");
+  const mapsLoaded = useLoadGoogleMaps("AIzaSyBFqTF-H_2T__YWkQ-S0tG0zUp8EwHMikc");
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [stations, setStations] = useState<Station[]>([]);
