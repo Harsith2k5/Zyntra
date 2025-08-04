@@ -1041,6 +1041,15 @@ lastUpdated: data.lastUpdated ? (data.lastUpdated.toDate ? data.lastUpdated.toDa
       <div className="min-h-screen bg-[#0B0B0B] text-white">
         <Routes>
           {/* Public routes */}
+          {/* <Route
+            path="/user-dashboard"
+            element={
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+                <Header currentUser={currentUser} userData={userData!} />
+                <UserSpecific />
+              </motion.div>
+            }
+          /> */}
           <Route path="/virtual-queue" element={<VirtualQueue />} />
           <Route
             path="/login"
@@ -1076,6 +1085,7 @@ lastUpdated: data.lastUpdated ? (data.lastUpdated.toDate ? data.lastUpdated.toDa
             }
           />
 
+
           <Route element={<ProtectedRouteGuard><Outlet /></ProtectedRouteGuard>}>
             {/* Main App Routes */}
             <Route path="/dashboard" element={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}><Header currentUser={currentUser} userData={userData!} /><Dashboard userData={userData!} /></motion.div>} />
@@ -1107,11 +1117,12 @@ lastUpdated: data.lastUpdated ? (data.lastUpdated.toDate ? data.lastUpdated.toDa
             <Route path="/admin/settings" element={<AdminLayout><AdminSettings /></AdminLayout>} />
 
             <Route path="/workstation/dummy" element={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}><Dummy /></motion.div>} />
-
-<Route path="/workstation/userspecific/:uid" element={<UserSpecific />} />
+ 
+<Route path="/workstation/userspecific/:uid" element={<UserSpecific />} /> 
 <Route path="/workstation/stationspecific" element={<StationSpecific />} />
 
 <Route path="/admin/verification" element={<AdminLayout><ZyntraApp /></AdminLayout>} />
+
 
 
             <Route

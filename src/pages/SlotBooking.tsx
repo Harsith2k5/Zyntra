@@ -393,7 +393,7 @@ const SlotBooking: React.FC = () => {
 };
 
 export default SlotBooking; */
-import React, { useState } from 'react';
+/* import React, { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Clock, Calendar, CheckCircle } from 'lucide-react';
 import GlassCard from '../components/ui/GlassCard';
@@ -564,6 +564,493 @@ const SlotBooking: React.FC = () => {
               <>
                 <Clock className="w-4 h-4 mr-2" />
                 Confirm Booking
+              </>
+            )}
+          </NeonButton>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SlotBooking; */
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Clock, Calendar, CheckCircle, Zap, CreditCard } from 'lucide-react';
+import GlassCard from '../components/ui/GlassCard';
+import NeonButton from '../components/ui/NeonButton';
+import { db } from '../firebase';
+import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+
+interface Booking {
+  bookedAt: string;
+  pin: number;
+  slotTime: string;
+  slotDate: string;
+  status: string;
+  userId: string;
+  userName: string;
+  isFastLane?: boolean;
+}
+
+interface StationData {
+  name: string;
+  address: string;
+  location: {
+    lat: number;
+    lng: number;
+  };
+  bookings: Booking[];
+  pricePerHour?: number;
+  fastLanePrice?: number;
+}
+
+interface UserProfile {
+  greenCredits: number;
+  // Add other user profile fields if needed
+}
+
+const SlotBooking: React.FC = () => {
+  const { stationId } = useParams();
+  const { state } = useLocation();
+  const { stationName, stationAddress } = state || {};
+  const navigate = useNavigate();
+  const auth = getAuth();
+  
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [isBooking, setIsBooking] = useState(false);
+  const [bookingComplete, setBookingComplete] = useState(false);
+  const [pin, setPin] = useState<number | null>(null);
+  const [stationData, setStationData] = useState<StationData | null>(null);
+  const [isFastLane, setIsFastLane] = useState(false);
+  const [userCredits, setUserCredits] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // Available time slots
+  const timeSlots = [
+    '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM', 
+    '12:00 PM', '01:00 PM', '02:00 PM', '03:00 PM',
+    '04:00 PM', '05:00 PM', '06:00 PM', '07:00 PM'
+  ];
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch station data
+        if (stationId) {
+          const stationRef = doc(db, "stations", stationId);
+          const stationSnap = await getDoc(stationRef);
+          if (stationSnap.exists()) {
+            setStationData(stationSnap.data() as StationData);
+          }
+        }
+
+        // Fetch user credits
+        if (auth.currentUser) {
+          const userRef = doc(db, "userProfiles", auth.currentUser.uid);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+            const userData = userSnap.data() as UserProfile;
+            setUserCredits(userData.greenCredits || 0);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [stationId, auth.currentUser]);
+
+  const getBookedSlotsForSelectedDate = () => {
+    if (!stationData?.bookings) return [];
+    
+    const selectedDateStr = selectedDate.toISOString().split('T')[0];
+    return stationData.bookings.filter(booking => 
+      booking.slotDate === selectedDateStr && booking.status !== 'cancelled'
+    ).map(booking => booking.slotTime);
+  };
+
+  const handleBook = async () => {
+    if (!selectedTime || !stationId || !auth.currentUser || !stationData) return;
+
+    try {
+      setIsBooking(true);
+      const user = auth.currentUser;
+      
+      // Generate random 4-digit PIN
+const generateFourDigitPin = () => {
+  let pin = '';
+  for (let i = 0; i < 4; i++) {
+    pin += Math.floor(Math.random() * 8) + 1; // Random digit 1-8
+  }
+  return parseInt(pin, 10);
+};
+
+// Inside handleBook:
+const newPin = generateFourDigitPin(); 
+      
+      // Create booking object
+      const booking: Booking = {
+        userId: user.uid,
+        userName: user.displayName || "Anonymous",
+        bookedAt: new Date().toISOString(),
+        slotTime: selectedTime,
+        slotDate: selectedDate.toISOString().split('T')[0],
+        pin: newPin,
+        status: "reserved",
+        isFastLane: isFastLane
+      };
+
+      // Update station document with new booking
+      const stationRef = doc(db, "stations", stationId);
+      await updateDoc(stationRef, {
+        bookings: arrayUnion(booking)
+      });
+
+      // Deduct credits if fast lane
+      if (isFastLane) {
+        const userRef = doc(db, "userProfiles", user.uid);
+        await updateDoc(userRef, {
+          greenCredits: userCredits - calculatePrice()
+        });
+        setUserCredits(prev => prev - calculatePrice());
+      }
+
+      setPin(newPin);
+      setBookingComplete(true);
+    } catch (error) {
+      console.error("Booking error:", error);
+      alert("Failed to complete booking. Please try again.");
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
+  const isSlotAvailable = (time: string) => {
+    const bookedSlots = getBookedSlotsForSelectedDate();
+    
+    // Check if already booked
+    if (bookedSlots.includes(time)) return false;
+    
+    // Check if time is in the past
+    const today = new Date();
+    const selectedDateStr = selectedDate.toISOString().split('T')[0];
+    const todayStr = today.toISOString().split('T')[0];
+    
+    if (selectedDateStr < todayStr) return false;
+    
+    if (selectedDateStr === todayStr) {
+      const timeParts = time.split(' ');
+      const timeValue = timeParts[0].split(':');
+      const period = timeParts[1];
+      
+      let hours = parseInt(timeValue[0], 10);
+      const minutes = parseInt(timeValue[1], 10);
+      
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+      
+      const slotDateTime = new Date();
+      slotDateTime.setHours(hours, minutes, 0, 0);
+      
+      if (slotDateTime < today) return false;
+    }
+    
+    return true;
+  };
+
+  const isPastSlot = (time: string) => {
+    const today = new Date();
+    const selectedDateStr = selectedDate.toISOString().split('T')[0];
+    const todayStr = today.toISOString().split('T')[0];
+    
+    if (selectedDateStr < todayStr) return true;
+    
+    if (selectedDateStr === todayStr) {
+      const timeParts = time.split(' ');
+      const timeValue = timeParts[0].split(':');
+      const period = timeParts[1];
+      
+      let hours = parseInt(timeValue[0], 10);
+      const minutes = parseInt(timeValue[1], 10);
+      
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+      
+      const slotDateTime = new Date();
+      slotDateTime.setHours(hours, minutes, 0, 0);
+      
+      return slotDateTime < today;
+    }
+    
+    return false;
+  };
+
+  const calculatePrice = () => {
+    if (!stationData) return 0;
+    return isFastLane 
+      ? stationData.fastLanePrice || 50 
+      : stationData.pricePerHour || 20;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0B0B0B] pt-20 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!stationName) {
+    return (
+      <div className="min-h-screen bg-[#0B0B0B] pt-20 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-white text-xl">Station information missing</h2>
+          <NeonButton onClick={() => navigate('/discover')} className="mt-4">
+            Back to Map
+          </NeonButton>
+        </div>
+      </div>
+    );
+  }
+
+  if (bookingComplete) {
+    return (
+      <div className="min-h-screen bg-[#0B0B0B] pt-20 flex items-center justify-center px-4">
+        <GlassCard className="p-8 text-center max-w-md">
+          <div className="w-20 h-20 bg-[#16FFBD]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-10 h-10 text-[#16FFBD]" />
+          </div>
+
+          <h2 className="text-2xl font-bold text-white mb-2">
+            {isFastLane ? 'Fast Lane Booking Confirmed!' : 'Booking Confirmed!'}
+          </h2>
+          <p className="text-white/60 mb-6">
+            Your charging slot at {stationName} is reserved
+          </p>
+
+          <div className="space-y-4 mb-6">
+            <div className="flex justify-between items-center">
+              <span className="text-white/60">Date</span>
+              <span className="text-white font-medium">
+                {selectedDate.toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-white/60">Time Slot</span>
+              <span className="text-white font-medium">{selectedTime}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-white/60">PIN Code</span>
+              <span className="text-[#16FFBD] font-bold text-lg tracking-widest">
+                {pin}
+              </span>
+            </div>
+            {isFastLane && (
+              <div className="flex justify-between items-center">
+                <span className="text-white/60">Fast Lane Price</span>
+                <span className="text-[#FFD700] font-bold">
+                  {calculatePrice()} credits
+                </span>
+              </div>
+            )}
+          </div>
+
+          <NeonButton
+            onClick={() => navigate('/discover')}
+            className="w-full"
+          >
+            Done
+          </NeonButton>
+        </GlassCard>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0B0B0B] pt-20 pb-8">
+      <div className="container-responsive">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Book Charging Slot</h1>
+          <p className="text-white/60">{stationName}</p>
+          {stationAddress && (
+            <p className="text-white/60 text-sm mt-1">{stationAddress}</p>
+          )}
+        </div>
+
+        <GlassCard className="p-6 mb-8">
+          <div className="flex items-center space-x-3 mb-4">
+            <Calendar className="w-6 h-6 text-[#16FFBD]" />
+            <h2 className="text-xl font-semibold text-white">Select Date</h2>
+          </div>
+          
+          <div className="mb-6">
+            <DatePicker
+              selected={selectedDate}
+              onChange={(date: Date | null) => {
+                if (date) {
+                  setSelectedDate(date);
+                  setSelectedTime(null);
+                }
+              }}
+              minDate={new Date()}
+              inline
+              className="bg-transparent"
+              wrapperClassName="w-full"
+              calendarClassName="bg-[#1E1E1E] border border-[#333] rounded-lg p-4"
+              dayClassName={(date) => 
+                date.getDate() === selectedDate.getDate() && 
+                date.getMonth() === selectedDate.getMonth() && 
+                date.getFullYear() === selectedDate.getFullYear()
+                  ? 'bg-[#16FFBD] text-black rounded-full'
+                  : 'text-white hover:bg-[#333] rounded-full'
+              }
+            />
+          </div>
+
+          <div className="flex items-center space-x-3 mb-4">
+            <Clock className="w-6 h-6 text-[#16FFBD]" />
+            <h2 className="text-xl font-semibold text-white">Select Time Slot</h2>
+            <div className="ml-auto text-sm text-white/60">
+              Credits: <span className="text-[#16FFBD]">{userCredits}</span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            {timeSlots.map((time) => {
+              const available = isSlotAvailable(time);
+              const past = isPastSlot(time);
+              const booked = !available && !past;
+
+              return (
+                <button
+                  key={time}
+                  onClick={() => available && !past && setSelectedTime(time)}
+                  disabled={!available || past}
+                  className={`
+                    p-4 rounded-2xl border-2 transition-all
+                    ${selectedTime === time 
+                      ? 'border-[#16FFBD] bg-[#16FFBD]/20' 
+                      : past
+                        ? 'border-gray-500/30 bg-gray-500/10 opacity-50 cursor-not-allowed'
+                        : available
+                          ? 'border-green-500/30 hover:border-green-500/60 bg-green-500/10'
+                          : 'border-red-500/30 bg-red-500/10 opacity-70 cursor-not-allowed'
+                    }
+                  `}
+                >
+                  <div className={`font-semibold ${
+                    past ? 'text-gray-400' : 
+                    booked ? 'text-white/50' : 
+                    'text-white'
+                  }`}>
+                    {time}
+                  </div>
+                  {booked && (
+                    <div className="text-xs text-red-400 mt-1">Booked</div>
+                  )}
+                  {past && (
+                    <div className="text-xs text-gray-400 mt-1">Passed</div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedTime && (
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <Zap className="w-5 h-5 text-yellow-400" />
+                  <span className="text-white">Fast Lane Booking</span>
+                  <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">
+                    Priority Access
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer" 
+                    checked={isFastLane}
+                    onChange={() => setIsFastLane(!isFastLane)}
+                  />
+                  <div className="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#16FFBD]"></div>
+                </label>
+              </div>
+
+              {isFastLane && (
+                <div className="bg-[#1E1E1E] p-4 rounded-lg mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-white/80">Fast Lane Price:</span>
+                    <span className="text-[#FFD700] font-bold">
+                      {calculatePrice()} credits
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/80">Your Credits:</span>
+                    <span className={userCredits >= calculatePrice() ? 'text-green-400' : 'text-red-400'}>
+                      {userCredits} credits
+                    </span>
+                  </div>
+                  {userCredits < calculatePrice() && (
+                    <div className="text-red-400 text-sm mt-2">
+                      Not enough credits. Please add more credits to book fast lane.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </GlassCard>
+
+        <div className="flex space-x-4">
+          <NeonButton
+            variant="secondary"
+            onClick={() => navigate('/discover')}
+            className="flex-1"
+          >
+            Cancel
+          </NeonButton>
+          <NeonButton
+            onClick={handleBook}
+            disabled={
+              !selectedTime || 
+              isBooking || 
+              (isFastLane && userCredits < calculatePrice())
+            }
+            className="flex-1"
+          >
+            {isBooking ? (
+              <span className="flex items-center justify-center">
+                <Clock className="w-4 h-4 mr-2 animate-spin" />
+                Booking...
+              </span>
+            ) : (
+              <>
+                {isFastLane ? (
+                  <>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Pay {calculatePrice()} credits
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-4 h-4 mr-2" />
+                    Confirm Booking
+                  </>
+                )}
               </>
             )}
           </NeonButton>

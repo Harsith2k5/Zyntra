@@ -54,19 +54,103 @@ const initialMessages: ChatMessage[] = [
   }
 ];
 
+
+const useSpeechRecognition = () => {
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+
+        recognitionRef.current.onresult = (event: any) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          setTranscript(finalTranscript || interimTranscript);
+        };
+
+        recognitionRef.current.onerror = (event: any) => {
+          console.error('Speech recognition error', event.error);
+          setIsListening(false);
+        };
+      }
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  const startListening = () => {
+    if (recognitionRef.current) {
+      setTranscript('');
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
+
+  return {
+    isListening,
+    transcript,
+    startListening,
+    stopListening,
+    hasRecognitionSupport: !!recognitionRef.current
+  };
+};
+
+
 const Assistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [inputMessage, setInputMessage] = useState('');
-  const [isListening, setIsListening] = useState(false);
+ // const [isListening, setIsListening] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    const [isSpeaking, setIsSpeaking] = useState(false);
+  const {
+    isListening: isVoiceListening,
+    transcript,
+    startListening,
+    stopListening,
+    hasRecognitionSupport
+  } = useSpeechRecognition();
+  
+  
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+  useEffect(() => {
+  if (transcript) {
+    setInputMessage(transcript);
+  }
+}, [transcript]);
 
   // Fetch user profile from Firebase
   useEffect(() => {
@@ -87,7 +171,16 @@ const Assistant: React.FC = () => {
 
   const formatTime = (ts: string) =>
     new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-
+const speak = (text: string) => {
+  if ('speechSynthesis' in window) {
+    setIsSpeaking(true);
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.onend = () => setIsSpeaking(false);
+    speechSynthesis.speak(utterance);
+  }
+};
 // Update the error handling in handleSendMessage
 const handleSendMessage = async (message?: string) => {
   const userText = (message ?? inputMessage).trim();
@@ -112,25 +205,27 @@ const handleSendMessage = async (message?: string) => {
       timestamp: new Date().toISOString()
     };
     setMessages(prev => [...prev, botMsg]);
-  } catch (err: unknown) {
-    let errorMessage = "Sorry, I encountered an error. Please try again.";
-    
-    if (err instanceof Error) {
-      errorMessage = err.message;
-    } else if (typeof err === 'string') {
-      errorMessage = err;
-    }
-
-    const errorMsg: ChatMessage = {
-      id: `error-${Date.now()}`,
-      type: 'bot',
-      message: errorMessage,
-      timestamp: new Date().toISOString()
-    };
-    setMessages(prev => [...prev, errorMsg]);
-  } finally {
-    setIsTyping(false);
+    speak(botText); // Add this line to speak responses
   }
+  catch (err: unknown) {
+  let errorMessage = "Sorry, I encountered an error. Please try again.";
+  
+  if (err instanceof Error) {
+    errorMessage = err.message;
+  } else if (typeof err === 'string') {
+    errorMessage = err;
+  }
+
+  const errorMsg: ChatMessage = {
+    id: `error-${Date.now()}`,
+    type: 'bot',
+    message: errorMessage,
+    timestamp: new Date().toISOString()
+  };
+  setMessages(prev => [...prev, errorMsg]);
+} finally {
+  setIsTyping(false);
+}
 };
 
 // Update callOpenAI function
@@ -150,7 +245,8 @@ async function callOpenAI(prompt: string): Promise<string> {
         ev_context: {
           model: userProfile?.evModel || 'Unknown',
           battery: userProfile?.batteryRemaining || 0,
-          location: 'Current Location'
+          location: 'Current Location',
+          is_voice: isVoiceListening
         }
       }),
     });
@@ -222,7 +318,16 @@ async function callOpenAI(prompt: string): Promise<string> {
   };
 
   const handleSuggestionClick = (s: string) => handleSendMessage(s);
-  const toggleListening = () => setIsListening(prev => !prev);
+const toggleListening = () => {
+  if (isVoiceListening) {
+    stopListening();
+    if (transcript) {
+      handleSendMessage(transcript);
+    }
+  } else {
+    startListening();
+  }
+};
 
   return (
     <>
@@ -338,9 +443,33 @@ async function callOpenAI(prompt: string): Promise<string> {
 
                 {/* Input */}
                 <div className="flex space-x-3 p-4 border-t border-white/10">
-                  <button onClick={toggleListening} className={`p-2 rounded-full ${isListening ? 'bg-red-500/20 text-red-400' : 'bg-white/10 hover:bg-white/20 text-white/60'}`}>
-                    {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                  </button>
+                  <button 
+  onClick={toggleListening} 
+  className={`p-2 rounded-full ${
+    isVoiceListening ? 'bg-red-500/20 text-red-400' : 
+    isSpeaking ? 'bg-[#16FFBD]/20 text-[#16FFBD]' : 
+    'bg-white/10 hover:bg-white/20 text-white/60'
+  }`}
+  disabled={!hasRecognitionSupport}
+  title={!hasRecognitionSupport ? "Voice recognition not supported" : ""}
+>
+  {isVoiceListening ? (
+    <MicOff className="w-4 h-4" />
+  ) : isSpeaking ? (
+    <div className="flex space-x-1">
+      {[0, 1, 2].map(i => (
+        <motion.div
+          key={i}
+          className="w-1 h-1 bg-[#16FFBD] rounded-full"
+          animate={{ height: [2, 6, 2] }}
+          transition={{ duration: 0.8, repeat: Infinity, delay: 0.2 * i }}
+        />
+      ))}
+    </div>
+  ) : (
+    <Mic className="w-4 h-4" />
+  )}
+</button>
                   <input
                     type="text"
                     value={inputMessage}

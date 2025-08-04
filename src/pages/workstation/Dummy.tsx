@@ -545,7 +545,9 @@ import { db } from '../../firebase';
 import { collection, onSnapshot, query, where, getDoc, DocumentData } from 'firebase/firestore';
 import { doc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-
+import { updateDoc, arrayUnion } from 'firebase/firestore';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import {  getDocs } from 'firebase/firestore';
 interface Booking {
   id?: string;
   bookedAt: string;
@@ -612,6 +614,13 @@ const Dummy: React.FC = () => {
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false); // New state for splash screen
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+const [email, setEmail] = useState('');
+const [password, setPassword] = useState('');
+const [loginError, setLoginError] = useState('');
+const [isLoggingIn, setIsLoggingIn] = useState(false);
+const [successMessage, setSuccessMessage] = useState('');
+const [showSuccess, setShowSuccess] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<{
   success: boolean;
   userId?: string;
@@ -634,6 +643,129 @@ const Dummy: React.FC = () => {
 
   const qrCodeImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://zyntra.com/walkin";
 
+const authenticateUser = async (email: string, password: string): Promise<{uid: string, email: string | null}> => {
+  const auth = getAuth();
+  
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return {
+      uid: userCredential.user.uid,
+      email: userCredential.user.email,
+    };
+  } catch (error: any) {  // Type assertion for error
+    let errorMessage = 'Login failed. Please try again.';
+    
+    switch (error.code) {
+      case 'auth/invalid-email':
+        errorMessage = 'Invalid email address';
+        break;
+      case 'auth/user-disabled':
+        errorMessage = 'Account disabled';
+        break;
+      case 'auth/user-not-found':
+        errorMessage = 'No account found with this email';
+        break;
+      case 'auth/wrong-password':
+        errorMessage = 'Incorrect password';
+        break;
+      default:
+        console.error('Authentication error:', error);
+    }
+    
+    throw new Error(errorMessage);
+  }
+};
+
+const handleWalkInLogin = async () => {
+  if (!email || !password) {
+    setLoginError('Please enter both email and password');
+    return;
+  }
+
+  setIsLoggingIn(true);
+  setLoginError('');
+
+  try {
+    // 1. Authenticate user with Firebase
+    const user = await authenticateUser(email, password);
+    
+    // 2. Get user profile from Firestore
+    const userProfileRef = doc(db, 'userProfiles', user.uid);
+    const userProfileSnap = await getDoc(userProfileRef);
+    
+    if (!userProfileSnap.exists()) {
+      throw new Error('User profile not found');
+    }
+    
+    const userData = userProfileSnap.data() as UserProfile;
+    
+    // 3. Get available slots from zyntra_user_location
+    const zyntraLocationsRef = collection(db, 'zyntra_user_location');
+    const q = query(zyntraLocationsRef, where('isZyntra', '==', true));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      throw new Error('No available charging locations found');
+    }
+    
+    // Find the first available slot
+    const locationDoc = querySnapshot.docs[0];
+    const locationData = locationDoc.data();
+    const bookings = locationData.bookings || [];
+    
+    // Calculate next available slot time
+    const now = new Date();
+    let nextAvailableTime = '';
+    
+    // Find the next available slot (simplified logic)
+    if (bookings.length === 0) {
+      nextAvailableTime = 'Immediately';
+    } else {
+      const lastBooking = bookings[bookings.length - 1];
+      const lastTime = new Date(lastBooking.bookedAt);
+      lastTime.setMinutes(lastTime.getMinutes() + 30); // Add 30 mins for charging
+      nextAvailableTime = lastTime > now ? 
+        lastTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 
+        'Immediately';
+    }
+    
+    // 4. Create walk-in booking
+    const booking: Booking = {
+      userId: user.uid,
+      userName: userData.name,
+      bookedAt: new Date().toISOString(),
+      slotTime: nextAvailableTime === 'Immediately' ? 
+        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 
+        nextAvailableTime,
+      status: 'reserved',
+      pin: Math.floor(1000 + Math.random() * 9000), // 4-digit PIN
+      evName: userData.evName,
+      evModel: userData.evModel
+    };
+
+    // 5. Add to station bookings
+    await updateDoc(locationDoc.ref, {
+      bookings: arrayUnion(booking)
+    });
+
+    // 6. Show success in modal
+    setSuccessMessage(`You've been added to the queue! Your PIN is ${booking.pin}. Next available slot: ${nextAvailableTime}`);
+    setShowSuccess(true);
+    
+    // 7. Update local state immediately
+    setCurrentQueue(prev => [...prev, booking]);
+    
+  } catch (error: unknown) {
+    console.error('Login error:', error);
+    let errorMessage = 'Login failed. Please try again.';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    setLoginError(errorMessage);
+  } finally {
+    setIsLoggingIn(false);
+  }
+};
   useEffect(() => {
   const esp32IP = "http://192.168.29.76";
 
@@ -660,6 +792,82 @@ const Dummy: React.FC = () => {
 
 
   useEffect(() => {
+     const zyntraStationRef = collection(db, 'stations');
+  const zyntraLocationsRef = collection(db, 'zyntra_user_location');
+  
+  const q = query(zyntraStationRef, where('isZyntra', '==', true));
+  const unsubscribe = onSnapshot(q, async (snapshot) => {
+    if (!snapshot.empty) {
+      const stationDoc = snapshot.docs[0];
+      const data = stationDoc.data() as StationData;
+      
+      // Also get mobile locations
+      const locationsQuery = query(zyntraLocationsRef, where('isZyntra', '==', true));
+      const locationsSnapshot = await getDocs(locationsQuery);
+      const mobileLocations = locationsSnapshot.docs.map(doc => doc.data());
+      
+      // Combine bookings from both sources
+      const allBookings = [...data.bookings];
+      mobileLocations.forEach(loc => {
+        if (loc.bookings) {
+          allBookings.push(...loc.bookings);
+        }
+      });
+      
+      // Fetch user profiles for each booking
+      const bookingsWithUserData = await Promise.all(
+        allBookings.map(async (booking) => {
+          try {
+            const userProfileRef = doc(db, 'userProfiles', booking.userId);
+            const userProfileSnap = await getDoc(userProfileRef);
+            
+            if (userProfileSnap.exists()) {
+              const userData = userProfileSnap.data() as UserProfile;
+              return {
+                ...booking,
+                id: booking.id || Math.random().toString(36).substring(7),
+                evName: userData.evName,
+                evModel: userData.evModel
+              };
+            }
+            return booking;
+          } catch (error) {
+            console.error("Error fetching user profile:", error);
+            return booking;
+          }
+        })
+      );
+      
+      setStationData({
+        ...data,
+        bookings: bookingsWithUserData
+      });
+      
+      // Process bookings into current queue and upcoming
+      const now = new Date();
+      const currentHours = now.getHours();
+      const currentMinutes = now.getMinutes();
+      
+      setCurrentQueue(
+        bookingsWithUserData.filter(booking => 
+          booking.status === 'reserved' || booking.status === 'active'
+        )
+      );
+      
+      setUpcomingBookings(
+        bookingsWithUserData.filter(booking => 
+          booking.status === 'reserved' && 
+          (parseInt(booking.slotTime.split(':')[0]) > currentHours ||
+          (parseInt(booking.slotTime.split(':')[0]) === currentHours && 
+          parseInt(booking.slotTime.split(':')[1].split(' ')[0]) > currentMinutes))
+        )
+      );
+    }
+    setLoading(false);
+  }, (error) => {
+    console.error("Error fetching station data:", error);
+    setLoading(false);
+  });
     // Check if Google Maps API is already loaded
     const checkMapsLoaded = () => {
       if (window.google && window.google.maps && window.google.maps.places) {
@@ -846,8 +1054,8 @@ const Dummy: React.FC = () => {
     const slotTime = new Date();
     slotTime.setHours(hours, minutes, 0, 0);
 
-    if (currentTime >= slotTime) {
-      const esp32IP = "http://192.168.29.76";
+    if (currentTime <= slotTime) {
+      const esp32IP = "http://192.168.133.97";
       const unlockUrl = `${esp32IP}/unlock?pin=${booking.pin}&userId=${booking.userId}`;
       await fetch(unlockUrl);
 
@@ -984,12 +1192,12 @@ const Dummy: React.FC = () => {
           )}
         </div>
         <div className={styles.headerButtons}>
-          <button 
-            className={styles.walkInButton} 
-            onClick={() => setShowQrCode(true)}
-          >
-            Walk-in
-          </button>
+<button 
+  className={styles.walkInButton} 
+  onClick={() => setShowLoginModal(true)}
+>
+  Walk-in
+</button>
           <button className={styles.helpButton}>
             <i className="fas fa-headset"></i> Support
           </button>
@@ -1117,26 +1325,80 @@ const Dummy: React.FC = () => {
         </div>
       </footer>
 
-      {showQrCode && (
-        <div className={styles.qrCodeOverlay} onClick={() => setShowQrCode(false)}>
-          <div className={styles.qrCodeModal} onClick={(e) => e.stopPropagation()}>
-            <button 
-              className={styles.qrCodeCloseButton} 
-              onClick={() => setShowQrCode(false)}
-            >
-              <i className="fas fa-times"></i>
-            </button>
-            <h2 className={styles.qrCodeTitle}>Scan for Walk-in Charge</h2>
-            <img src={qrCodeImageUrl} alt="Walk-in QR Code" className={styles.qrCodeImage} />
-            <p className={styles.qrCodeText}>
-              Show this QR code to our mobile charging unit to start your session.
-            </p>
-            <div className={styles.qrCodeHelp}>
-              <i className="fas fa-question-circle"></i> Need help? Call {stationData?.phone || '+91 1800 123 4567'}
-            </div>
+{showLoginModal && (
+  <div className={styles.loginOverlay} onClick={() => {
+    setShowLoginModal(false);
+    setShowSuccess(false);
+  }}>
+    <div className={styles.loginModal} onClick={(e) => e.stopPropagation()}>
+      <button 
+        className={styles.modalCloseButton} 
+        onClick={() => {
+          setShowLoginModal(false);
+          setShowSuccess(false);
+        }}
+      >
+        <i className="fas fa-times"></i>
+      </button>
+      
+      {showSuccess ? (
+        <div className={styles.successContainer}>
+          <div className={styles.successIcon}>
+            <i className="fas fa-check-circle"></i>
           </div>
+          <h2 className={styles.successTitle}>Success!</h2>
+          <p className={styles.successMessage}>{successMessage}</p>
+          <button 
+            className={styles.successButton}
+            onClick={() => {
+              setShowLoginModal(false);
+              setShowSuccess(false);
+              setEmail('');
+              setPassword('');
+            }}
+          >
+            Close
+          </button>
         </div>
+      ) : (
+        <>
+          <h2 className={styles.modalTitle}>Walk-in Charging</h2>
+          <div className={styles.loginForm}>
+            <div className={styles.formGroup}>
+              <label>Email</label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+              />
+            </div>
+            
+            <div className={styles.formGroup}>
+              <label>Password</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+              />
+            </div>
+            
+            {loginError && <div className={styles.errorMessage}>{loginError}</div>}
+            
+            <button 
+              className={styles.loginButton}
+              onClick={handleWalkInLogin}
+              disabled={isLoggingIn}
+            >
+              {isLoggingIn ? 'Processing...' : 'Start Charging'}
+            </button>
+          </div>
+        </>
       )}
+    </div>
+  </div>
+)}
     </div>
   );
 };

@@ -246,7 +246,7 @@ import {
 import GlassCard from '../components/ui/GlassCard';
 import NeonButton from '../components/ui/NeonButton';
 import { mockStations } from '../data/mockData'; // Keep mockStations for AI pick and other station data
-
+import BatteryEstimator from './BatteryEstimator';
 // --- Define the shape of data expected from Firestore (copy from App.tsx or create a shared types file) ---
 interface UserProfileData {
   id?: string; // Firestore document ID, optional as it's often implicit
@@ -335,40 +335,24 @@ const Dashboard: React.FC<DashboardProps> = ({ userData }) => {
     <div className="min-h-screen bg-[#0B0B0B] pt-20 pb-8">
       <div className="container-responsive">
         {/* --- Battery Status --- */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <GlassCard className="p-6 border border-white/10 shadow-lg shadow-black/30">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-white font-semibold text-xl mb-1">
-                  {vehicleBrand} {vehicleModel}
-                </h2>
-                <p className="text-white/70 text-sm">
-                  {estimatedRange.toFixed(0)} km range remaining
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center space-x-3 mb-2">
-                  <BatteryCharging className="w-8 h-8 text-[#16FFBD]" />
-                  <span className="text-4xl font-bold text-white">
-                    {currentBattery}%
-                  </span>
-                </div>
-                <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-[#16FFBD] to-[#FF6EC7]"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${currentBattery}%` }}
-                    transition={{ duration: 1, delay: 0.5 }}
-                  />
-                </div>
-              </div>
-            </div>
-          </GlassCard>
-        </motion.div>
+        {/* --- Battery Status --- */}
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  className="mb-8"
+>
+  <BatteryEstimator 
+    userData={{
+      evName: vehicleBrand,
+      evModel: vehicleModel,
+      batteryRemaining: currentBattery
+    }}
+    onUpdate={(newBattery) => {
+      // You might want to update Firestore here
+      console.log("New battery level:", newBattery);
+    }}
+  />
+</motion.div>
 
         {/* --- AI Smart Recommendation --- */}
         {aiPickStation && (

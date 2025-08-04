@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../../firebase"; // Adjust path to your firebase config
+
 import { 
   TrendingUp, 
   Users, 
@@ -34,6 +37,23 @@ ChartJS.register(
   Filler
 );
 
+
+interface Booking {
+  bookedAt: string;
+  slotTime: string;
+  status: string;
+}
+
+interface Revenue {
+  amount: number;
+  date: string;
+}
+interface StationData {
+  bookings: Booking[];
+  revenue: Revenue[];
+  totalRevenue: number;
+  // other fields you might need
+}
 interface AnalyticsData {
   overview: {
     totalSessions: number;
@@ -53,85 +73,180 @@ interface AnalyticsData {
   smartTip: string;
 }
 
-const generateMockAnalytics = (period: 'today' | 'week' | 'month'): AnalyticsData => {
+
+
+const fetchStationData = async (): Promise<StationData> => {
+  const docRef = doc(db, "stations", "zyntra_user_location");
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    return docSnap.data() as StationData;
+  } else {
+    throw new Error("No such document!");
+  }
+};
+const generateAnalyticsFromFirebase = (data: StationData, period: 'today' | 'week' | 'month'): AnalyticsData => {
   const now = new Date();
   
-  // Generate labels based on period
-  let labels: string[] = [];
-  if (period === 'today') {
-    labels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
-  } else if (period === 'week') {
-    labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  } else {
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    labels = Array.from({ length: Math.min(daysInMonth, 30) }, (_, i) => `${i + 1}/${now.getMonth() + 1}`);
-  }
-
-  // Generate session data with some randomness
-  const sessions = labels.map((_, i) => {
-    const base = period === 'today' ? 
-      (i >= 6 && i <= 10 ? 150 : i >= 17 && i <= 21 ? 200 : 80) :
-      period === 'week' ?
-      (i >= 0 && i <= 4 ? 1200 : 1800) :
-      Math.floor(3000 + Math.random() * 2000);
-    
-    return base + Math.floor(Math.random() * 200) - 100;
+  // Filter bookings based on period
+  const filteredBookings = data.bookings.filter(booking => {
+    const bookingDate = new Date(booking.bookedAt);
+    if (period === 'today') {
+      return bookingDate.toDateString() === now.toDateString();
+    } else if (period === 'week') {
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      return bookingDate >= oneWeekAgo;
+    } else {
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      return bookingDate >= oneMonthAgo;
+    }
   });
 
-  // Generate revenue data correlated with sessions but with some variation
-  const revenue = sessions.map(s => {
-    const multiplier = period === 'today' ? 
-      (s > 180 ? 120 : s > 150 ? 100 : 80) :
-      period === 'week' ?
-      (s > 1700 ? 110 : 90) :
-      95;
-    return s * multiplier;
+  // Filter revenue based on period
+  const filteredRevenue = data.revenue.filter(revenue => {
+    const revenueDate = new Date(revenue.date);
+    if (period === 'today') {
+      return revenueDate.toDateString() === now.toDateString();
+    } else if (period === 'week') {
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      return revenueDate >= oneWeekAgo;
+    } else {
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      return revenueDate >= oneMonthAgo;
+    }
   });
+
+  // Calculate total sessions (this should equal filteredBookings.length)
+  const totalSessions = filteredBookings.length;
 
   // Calculate peak hour
-  let peakHour = '';
+  const timeSlots = filteredBookings.reduce((acc, booking) => {
+    // Parse the slotTime (format: "05:00 PM")
+    const [time, period] = booking.slotTime.split(' ');
+    let [hoursStr, minutesStr] = time.split(':');
+    let hours = parseInt(hoursStr, 10);
+    
+    // Convert to 24-hour format
+    if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    
+    // Use the hour as key
+    const hourKey = hours.toString().padStart(2, '0');
+    acc[hourKey] = (acc[hourKey] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Find the hour with most bookings
+  const peakHourEntry = Object.entries(timeSlots).reduce((max, entry) => 
+    entry[1] > max[1] ? entry : max, ['00', 0]
+  );
+
+  // Format the peak hour display
+  const peakHour = `${peakHourEntry[0]}:00 - ${(parseInt(peakHourEntry[0]) + 1).toString().padStart(2, '0')}:00`;
+
+  // Calculate total revenue for period
+  const periodRevenue = filteredRevenue.reduce((sum, rev) => sum + rev.amount, 0);
+
+  // Generate labels and data for chart
+  let labels: string[] = [];
+  let sessionsData: number[] = [];
+  let revenueData: number[] = [];
+
   if (period === 'today') {
-    const peakIndex = sessions.indexOf(Math.max(...sessions));
-    peakHour = `${peakIndex}:00 - ${peakIndex + 1}:00`;
+    // Group by hour for today
+    labels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+    sessionsData = Array(24).fill(0);
+    filteredBookings.forEach(booking => {
+      const hour = new Date(booking.bookedAt).getHours();
+      sessionsData[hour]++;
+    });
+    
+    // Similarly for revenue
+    revenueData = Array(24).fill(0);
+    filteredRevenue.forEach(rev => {
+      const hour = new Date(rev.date).getHours();
+      revenueData[hour] += rev.amount;
+    });
   } else if (period === 'week') {
-    const peakDay = labels[sessions.indexOf(Math.max(...sessions))];
-    peakHour = `${peakDay} ${Math.floor(17 + Math.random() * 4)}:00`;
+    // Group by day for week
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    labels = days;
+    sessionsData = Array(7).fill(0);
+    filteredBookings.forEach(booking => {
+      const day = new Date(booking.bookedAt).getDay(); // 0-6 (Sun-Sat)
+      sessionsData[day]++;
+    });
+    
+    // Similarly for revenue
+    revenueData = Array(7).fill(0);
+    filteredRevenue.forEach(rev => {
+      const day = new Date(rev.date).getDay();
+      revenueData[day] += rev.amount;
+    });
   } else {
-    peakHour = `${Math.floor(17 + Math.random() * 4)}:00 - ${Math.floor(20 + Math.random() * 2)}:00`;
+    // Group by day for month (last 30 days)
+    const daysInPeriod = 30;
+    labels = Array.from({ length: daysInPeriod }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (daysInPeriod - 1 - i));
+      return `${date.getDate()}/${date.getMonth() + 1}`;
+    });
+    
+    sessionsData = Array(daysInPeriod).fill(0);
+    filteredBookings.forEach(booking => {
+      const bookingDate = new Date(booking.bookedAt);
+      const today = new Date();
+      const diffTime = today.getTime() - bookingDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const index = daysInPeriod - 1 - diffDays;
+      if (index >= 0 && index < daysInPeriod) {
+        sessionsData[index]++;
+      }
+    });
+    
+    // Similarly for revenue
+    revenueData = Array(daysInPeriod).fill(0);
+    filteredRevenue.forEach(rev => {
+      const revDate = new Date(rev.date);
+      const today = new Date();
+      const diffTime = today.getTime() - revDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const index = daysInPeriod - 1 - diffDays;
+      if (index >= 0 && index < daysInPeriod) {
+        revenueData[index] += rev.amount;
+      }
+    });
   }
 
-  // Smart tips based on data
-  const smartTips = [
-    `Peak usage detected around ${peakHour}. Consider implementing dynamic pricing to optimize revenue and reduce congestion during these hours.`,
-    `Your station is ${Math.floor(Math.random() * 20) + 70}% busier than similar stations in your area. Consider expanding capacity.`,
-    `Revenue per session is ₹${Math.floor(revenue.reduce((a, b) => a + b, 0) / sessions.reduce((a, b) => a + b, 1))}. Premium services could increase this.`,
-    `${period === 'today' ? 'Today' : period === 'week' ? 'This week' : 'This month'} has seen ${Math.floor(Math.random() * 30) + 10}% more sessions than average.`
-  ];
+  // Calculate utilization rate
+  const totalPossibleSessions = period === 'today' ? 24 : period === 'week' ? 7 * 24 : 30 * 24;
+  const utilizationRate = Math.round((filteredBookings.length / totalPossibleSessions) * 100);
 
   return {
     overview: {
-      totalSessions: sessions.reduce((a, b) => a + b, 0),
-      sessionChange: `${Math.floor(Math.random() * 20) - 5}%`,
-      revenue: Math.floor(revenue.reduce((a, b) => a + b, 0)),
-      revenueChange: `${Math.floor(Math.random() * 25) - 5}%`,
+      totalSessions: totalSessions, // This will now match filteredBookings.length
+      sessionChange: "0%",
+      revenue: periodRevenue,
+      revenueChange: "0%",
       peakHour,
-      peakConsistency: ['Consistent', 'Growing', 'Fluctuating'][Math.floor(Math.random() * 3)],
-      utilizationRate: Math.floor(Math.random() * 30) + 65,
-      utilizationChange: `${Math.floor(Math.random() * 10) - 2}%`
+      peakConsistency: "Consistent",
+      utilizationRate,
+      utilizationChange: "0%"
     },
     dailyTrends: {
       labels,
-      sessions,
-      revenue
+      sessions: sessionsData,
+      revenue: revenueData
     },
-    smartTip: smartTips[Math.floor(Math.random() * smartTips.length)]
+    smartTip: `Peak usage detected around ${peakHour}. Consider implementing dynamic pricing to optimize revenue and reduce congestion during these hours.`
   };
-};
-
-const mockData = {
-  today: generateMockAnalytics('today'),
-  week: generateMockAnalytics('week'),
-  month: generateMockAnalytics('month')
 };
 
 const AdminOverview: React.FC = () => {
@@ -141,8 +256,38 @@ const AdminOverview: React.FC = () => {
   const [isApplyingSuggestion, setIsApplyingSuggestion] = useState(false);
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [suggestionApplied, setSuggestionApplied] = useState(false);
+  const [stationData, setStationData] = useState<StationData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const currentData = mockData[selectedDate];
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await fetchStationData();
+        setStationData(data);
+        setLoading(false);
+      } catch (err) {
+        setError("Failed to load station data");
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
+
+  const currentData = stationData ? generateAnalyticsFromFirebase(stationData, selectedDate) : null;
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-64 text-white">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="flex justify-center items-center h-64 text-red-500">{error}</div>;
+  }
+
+  if (!currentData) {
+    return <div className="flex justify-center items-center h-64 text-white">No data available</div>;
+  }
 
   const handleExportCSV = () => {
     setIsExporting(true);
