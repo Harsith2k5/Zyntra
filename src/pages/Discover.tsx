@@ -2822,7 +2822,7 @@ const darkMapStyles = [ { elementType: "geometry", stylers: [{ color: "#1a1a1a" 
 const MapWithChargingStations: React.FC = () => {
   const navigate = useNavigate();
   const auth = getAuth();
-  const { isLoaded: mapsLoaded, loadError } = useLoadGoogleMaps("AIzaSyAQUzpRgDRUkX3644dlBWvuvizH5rIH4Hk");
+  const { isLoaded: mapsLoaded, loadError } = useLoadGoogleMaps("AIzaSyAR4pDTfDDN0kCVF5FuiP4m69bankC_vCE");
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [stations, setStations] = useState<Station[]>([]);
