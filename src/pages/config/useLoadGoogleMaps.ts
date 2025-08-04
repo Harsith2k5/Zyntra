@@ -1,4 +1,4 @@
-// useLoadGoogleMaps.ts
+/* // useLoadGoogleMaps.ts
 import { useState, useEffect } from 'react';
 
 const useLoadGoogleMaps = (apiKey: string) => {
@@ -23,6 +23,19 @@ const useLoadGoogleMaps = (apiKey: string) => {
   }, [apiKey]);
 
   return loaded;
+};
+
+export default useLoadGoogleMaps; */
+import { useJsApiLoader } from '@react-google-maps/api';
+
+const useLoadGoogleMaps = (apiKey: string) => {
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: apiKey,
+    libraries: ['places', 'geometry'], // Add geometry if needed
+  });
+
+  return { isLoaded, loadError };
 };
 
 export default useLoadGoogleMaps;

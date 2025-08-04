@@ -2822,7 +2822,7 @@ const darkMapStyles = [ { elementType: "geometry", stylers: [{ color: "#1a1a1a" 
 const MapWithChargingStations: React.FC = () => {
   const navigate = useNavigate();
   const auth = getAuth();
-  const mapsLoaded = useLoadGoogleMaps("YOUR_Maps_API_KEY"); // Replace with your key
+  const { isLoaded: mapsLoaded, loadError } = useLoadGoogleMaps("AIzaSyAQUzpRgDRUkX3644dlBWvuvizH5rIH4Hk");
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [stations, setStations] = useState<Station[]>([]);
@@ -2929,7 +2929,7 @@ const MapWithChargingStations: React.FC = () => {
   };
 
   const findNearbyStations = useCallback((mapInstance: google.maps.Map, location: { lat: number; lng: number }) => {
-    if (!mapInstance || !location || !window.google?.maps?.places) return;
+    if (!mapsLoaded || !mapInstance || !location || !window.google?.maps?.places) return;
     const service = new google.maps.places.PlacesService(mapInstance);
     service.nearbySearch({ location: new google.maps.LatLng(location.lat, location.lng), radius: 5000, keyword: "EV charging station" }, (results, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK && results) {
@@ -2943,7 +2943,7 @@ const MapWithChargingStations: React.FC = () => {
         }
       }
     });
-  }, [userLocation]);
+  }, [userLocation, mapsLoaded]);
 
   useEffect(() => {
     if (map && userLocation) {
@@ -2980,32 +2980,95 @@ const MapWithChargingStations: React.FC = () => {
   const showAllStations = () => { setSelectedStation(null); setDirections(null); };
   const onMapLoad = useCallback((mapInstance: google.maps.Map) => { setMap(mapInstance); }, []);
   const getLocationLiteral = (location: { lat: () => number; lng: () => number }) => ({ lat: location.lat(), lng: location.lng() });
+  
   const handleBookSlot = async (station: Station) => {
-    const user = auth.currentUser;
-    if (!user) { navigate('/login'); return; }
-    if (station.place_id !== 'zyntra_user_location') {
-      const stationRef = doc(db, "stations", station.place_id);
-      const docSnap = await getDoc(stationRef);
-      if (!docSnap.exists()) {
-        await setDoc(stationRef, { id: station.place_id, name: station.name, address: station.formatted_address, location: { lat: station.geometry.location.lat(), lng: station.geometry.location.lng() }, createdAt: new Date().toISOString() });
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        navigate('/login');
+        return;
       }
+      if (station.place_id !== 'zyntra_user_location') {
+        const stationRef = doc(db, "stations", station.place_id);
+        const docSnap = await getDoc(stationRef);
+        
+        if (!docSnap.exists()) {
+          await setDoc(stationRef, {
+            id: station.place_id,
+            name: station.name || 'Unknown Station',
+            address: station.formatted_address || 'Address not available',
+            location: {
+              lat: station.geometry.location.lat() || userLocation?.lat || 0,
+              lng: station.geometry.location.lng() || userLocation?.lng || 0
+            },
+            createdAt: new Date().toISOString(),
+            bookings: []
+          });
+        }
+      }
+      navigate(`/book/${station.place_id}`, {
+        state: {
+          stationName: station.name,
+          stationAddress: station.formatted_address || 
+                        (station.place_id === 'zyntra_user_location' ? 'Your Current Location' : ''),
+          isZyntraStation: station.place_id === 'zyntra_user_location',
+          userLocation: station.place_id === 'zyntra_user_location' ? userLocation : null
+        }
+      });
+    } catch (error) {
+      console.error("Error initiating booking:", error);
+      navigate(`/book/${station.place_id}`, {
+        state: {
+          stationName: station.name,
+          stationAddress: station.formatted_address
+        }
+      });
     }
-    navigate(`/book/${station.place_id}`, { state: { stationName: station.name, stationAddress: station.formatted_address || (station.place_id === 'zyntra_user_location' ? 'Your Current Location' : ''), isZyntraStation: station.place_id === 'zyntra_user_location', userLocation: station.place_id === 'zyntra_user_location' ? userLocation : null } });
   };
-  
-  const userMarkerIcon = { path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z', fillColor: '#00BFFF', fillOpacity: 1, strokeColor: '#00FFFF', strokeWeight: 2.5, scale: 2.2, anchor: new google.maps.Point(12, 24), };
-  const evStationMarkerIcon = { path: 'M17.5 6.5c-.28 0-.5.22-.5.5v2.5h-10v-2.5c0-.28-.22-.5-.5-.5s-.5.22-.5.5v3c0 .28.22.5.5.5h11c.28 0 .5-.22-.5-.5v-3c0-.28-.22-.5-.5-.5zm-11 5h-1.5c-.28 0-.5.22-.5.5v1.5c0 .28.22.5.5.5h1.5c.28 0 .5-.22-.5-.5v-1.5c0-.28-.22-.5-.5-.5zm11 0h-1.5c-.28 0-.5.22-.5.5v1.5c0 .28.22.5.5.5h1.5c.28 0 .5-.22-.5-.5v-1.5c0-.28-.22-.5-.5-.5zm-11 3.5h-1.5c-.28 0-.5.22-.5.5v1.5c0 .28.22.5.5.5h1.5c.28 0 .5-.22-.5-.5v-1.5c0-.28-.22-.5-.5-.5zm11 0h-1.5c-.28 0-.5.22-.5.5v1.5c0 .28.22.5.5.5h1.5c.28 0 .5-.22-.5-.5v-1.5c0-.28-.22-.5-.5-.5zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zM12 5c-3.31 0-6 2.69-6 6h12c0-3.31-2.69-6-6-6z', fillColor: '#39FF14', fillOpacity: 1, strokeColor: '#00FF00', strokeWeight: 2, scale: 1.2, anchor: new google.maps.Point(12, 12), };
-  const zyntraMarkerIcon = { path: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z', fillColor: '#FF00FF', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2, scale: 1.8, anchor: new google.maps.Point(12, 12), };
-  
-  if (!mapsLoaded) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: primaryBg, color: textColor }}><p>Loading EV Map Interface...</p></div>;
-  }
 
   // --- Helper to get battery color ---
   const getBatteryColor = (level: number) => {
     if (level < 20) return '#FF4500'; // Red
     if (level < 50) return '#FFD700'; // Yellow
     return '#39FF14'; // Green
+  };
+
+  if (loadError) {
+    return <div>Error loading maps. Please check your API key and network connection.</div>;
+  }
+  
+  if (!mapsLoaded) {
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: primaryBg, color: textColor }}><p>Loading EV Map Interface...</p></div>;
+  }
+
+  // --- FIX ---
+  // Define Marker Icons here, AFTER `mapsLoaded` is confirmed to be true.
+  const userMarkerIcon = {
+    path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
+    fillColor: '#00BFFF',
+    fillOpacity: 1,
+    strokeColor: '#00FFFF',
+    strokeWeight: 2.5,
+    scale: 2.2,
+    anchor: new window.google.maps.Point(12, 24),
+  };
+  const evStationMarkerIcon = {
+    path: 'M17.5 6.5c-.28 0-.5.22-.5.5v2.5h-10v-2.5c0-.28-.22-.5-.5-.5s-.5.22-.5.5v3c0 .28.22.5.5.5h11c.28 0 .5-.22-.5-.5v-3c0-.28-.22-.5-.5-.5zm-11 5h-1.5c-.28 0-.5.22-.5.5v1.5c0 .28.22.5.5.5h1.5c.28 0 .5-.22-.5-.5v-1.5c0-.28-.22-.5-.5-.5zm11 0h-1.5c-.28 0-.5.22-.5.5v1.5c0 .28.22.5.5.5h1.5c.28 0 .5-.22-.5-.5v-1.5c0-.28-.22-.5-.5-.5zm-11 3.5h-1.5c-.28 0-.5.22-.5.5v1.5c0 .28.22.5.5.5h1.5c.28 0 .5-.22-.5-.5v-1.5c0-.28-.22-.5-.5-.5zm11 0h-1.5c-.28 0-.5.22-.5.5v1.5c0 .28.22.5.5.5h1.5c.28 0 .5-.22-.5-.5v-1.5c0-.28-.22-.5-.5-.5zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zM12 5c-3.31 0-6 2.69-6 6h12c0-3.31-2.69-6-6-6z',
+    fillColor: '#39FF14',
+    fillOpacity: 1,
+    strokeColor: '#00FF00',
+    strokeWeight: 2,
+    scale: 1.2,
+    anchor: new window.google.maps.Point(12, 12),
+  };
+  const zyntraMarkerIcon = {
+    path: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z',
+    fillColor: '#FF00FF',
+    fillOpacity: 1,
+    strokeColor: '#FFFFFF',
+    strokeWeight: 2,
+    scale: 1.8,
+    anchor: new window.google.maps.Point(12, 12),
   };
   
   return (
@@ -3025,89 +3088,86 @@ const MapWithChargingStations: React.FC = () => {
         
         {/* MODIFIED: AI Recommendation Popup (Top-Left) */}
         <div style={{
-    position: 'absolute',
-    top: '20px',
-    left: '20px',
-    zIndex: 20,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '15px', // This creates space between the two panels
-    maxWidth: '450px',
-    width: 'calc(100% - 40px)',
-}}>
-    <style>{`
-        @keyframes fadeInSlideDown {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    `}</style>
-
-    {/* MODIFIED & REPOSITIONED: AI Recommendation Panel */}
-    {showAiPopup && (
-        <div style={{
-            // This panel is now a child of the new container
-            width: '100%',
-            backgroundColor: 'rgba(25, 25, 25, 0.9)',
-            border: `1px solid ${glowingCyan}`,
-            borderRadius: '12px',
-            padding: '20px',
-            boxSizing: 'border-box', // Ensures padding doesn't affect width calculation
-            backdropFilter: 'blur(8px)',
-            boxShadow: `0 0 25px rgba(0, 255, 255, 0.3)`,
-            animation: 'fadeInSlideDown 0.5s ease-out'
+            position: 'absolute',
+            top: '20px',
+            left: '20px',
+            zIndex: 20,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '15px',
+            maxWidth: '450px',
+            width: 'calc(100% - 40px)',
         }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h3 style={{ margin: 0, color: glowingCyan, display: 'flex', alignItems: 'center', textShadow: '0 0 10px rgba(0, 255, 255, 0.7)' }}>
-                    <FaRobot style={{ marginRight: '10px' }} /> Zyntra AI Recommendation
-                </h3>
-                <button onClick={() => setShowAiPopup(false)} style={{ background: 'none', border: 'none', color: mutedTextColor, cursor: 'pointer', fontSize: '1.2em' }}><FaTimes /></button>
-            </div>
-            <div style={{ color: textColor, fontSize: '1em', lineHeight: '1.6' }}>
-                {aiLoading ? <p>Analyzing your vehicle data...</p> : <p>{aiRecommendation}</p>}
-            </div>
-        </div>
-    )}
+            <style>{`
+                @keyframes fadeInSlideDown {
+                    from { opacity: 0; transform: translateY(-20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
 
-    {/* MODIFIED & REPOSITIONED: Battery Status Panel */}
-    {userEVData && (
-        <div style={{
-            // This panel is now a child of the new container
-            width: '100%',
-            backgroundColor: 'rgba(11, 11, 11, 0.9)',
-            border: `1px solid ${accentColor}`,
-            borderRadius: '12px',
-            padding: '20px',
-            boxSizing: 'border-box', // Ensures padding doesn't affect width calculation
-            backdropFilter: 'blur(5px)',
-            boxShadow: `0 0 20px rgba(22, 255, 189, 0.3)`,
-            animation: 'fadeInSlideDown 0.5s ease-out 0.1s', // Staggered animation
-            animationFillMode: 'backwards',
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-                <FaCarBattery style={{ fontSize: '3em', color: getBatteryColor(userEVData.batteryRemaining), marginRight: '20px', flexShrink: 0, filter: `drop-shadow(0 0 8px ${getBatteryColor(userEVData.batteryRemaining)})` }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <h4 style={{ margin: 0, color: textColor, display: 'flex', alignItems: 'center' }}>
-                        <FaCar style={{ marginRight: '8px' }} /> {userEVData.evName || 'Your EV'}
-                    </h4>
-                    <p style={{ margin: '2px 0 10px 0', color: mutedTextColor, fontSize: '0.9em' }}>
-                        {userEVData.evModel || 'Model Unknown'}
-                    </p>
-                    <div style={{ width: '100%', backgroundColor: secondaryBg, borderRadius: '5px', height: '22px', border: '1px solid #444', position: 'relative', overflow: 'hidden' }}>
-                        <div style={{ width: `${userEVData.batteryRemaining}%`, backgroundColor: getBatteryColor(userEVData.batteryRemaining), height: '100%', borderRadius: '4px', transition: 'width 0.5s ease' }} />
-                        <p style={{
-                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                            margin: 0, color: '#000', fontWeight: 'bold',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '0.8em', textShadow: '0 0 4px rgba(255,255,255,0.6)',
-                        }}>
-                            {userEVData.batteryRemaining}% Charge
-                        </p>
+            {showAiPopup && (
+                <div style={{
+                    width: '100%',
+                    backgroundColor: 'rgba(25, 25, 25, 0.9)',
+                    border: `1px solid ${glowingCyan}`,
+                    borderRadius: '12px',
+                    padding: '20px',
+                    boxSizing: 'border-box',
+                    backdropFilter: 'blur(8px)',
+                    boxShadow: `0 0 25px rgba(0, 255, 255, 0.3)`,
+                    animation: 'fadeInSlideDown 0.5s ease-out'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                        <h3 style={{ margin: 0, color: glowingCyan, display: 'flex', alignItems: 'center', textShadow: '0 0 10px rgba(0, 255, 255, 0.7)' }}>
+                            <FaRobot style={{ marginRight: '10px' }} /> Zyntra AI Recommendation
+                        </h3>
+                        <button onClick={() => setShowAiPopup(false)} style={{ background: 'none', border: 'none', color: mutedTextColor, cursor: 'pointer', fontSize: '1.2em' }}><FaTimes /></button>
+                    </div>
+                    <div style={{ color: textColor, fontSize: '1em', lineHeight: '1.6' }}>
+                        {aiLoading ? <p>Analyzing your vehicle data...</p> : <p>{aiRecommendation}</p>}
                     </div>
                 </div>
-            </div>
+            )}
+
+            {userEVData && (
+                <div style={{
+                    width: '100%',
+                    backgroundColor: 'rgba(11, 11, 11, 0.9)',
+                    border: `1px solid ${accentColor}`,
+                    borderRadius: '12px',
+                    padding: '20px',
+                    boxSizing: 'border-box',
+                    backdropFilter: 'blur(5px)',
+                    boxShadow: `0 0 20px rgba(22, 255, 189, 0.3)`,
+                    animation: 'fadeInSlideDown 0.5s ease-out 0.1s',
+                    animationFillMode: 'backwards',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <FaCarBattery style={{ fontSize: '3em', color: getBatteryColor(userEVData.batteryRemaining), marginRight: '20px', flexShrink: 0, filter: `drop-shadow(0 0 8px ${getBatteryColor(userEVData.batteryRemaining)})` }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <h4 style={{ margin: 0, color: textColor, display: 'flex', alignItems: 'center' }}>
+                                <FaCar style={{ marginRight: '8px' }} /> {userEVData.evName || 'Your EV'}
+                            </h4>
+                            <p style={{ margin: '2px 0 10px 0', color: mutedTextColor, fontSize: '0.9em' }}>
+                                {userEVData.evModel || 'Model Unknown'}
+                            </p>
+                            <div style={{ width: '100%', backgroundColor: secondaryBg, borderRadius: '5px', height: '22px', border: '1px solid #444', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ width: `${userEVData.batteryRemaining}%`, backgroundColor: getBatteryColor(userEVData.batteryRemaining), height: '100%', borderRadius: '4px', transition: 'width 0.5s ease' }} />
+                                <p style={{
+                                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                    margin: 0, color: '#000', fontWeight: 'bold',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '0.8em', textShadow: '0 0 4px rgba(255,255,255,0.6)',
+                                }}>
+                                    {userEVData.batteryRemaining}% Charge
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
-    )}
-</div>
+
         {showTopStations && topStations.length > 0 && (
           <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(11, 11, 11, 0.9)', border: `1px solid ${accentColor}`, borderRadius: '12px', padding: '15px', width: '90%', maxWidth: '500px', zIndex: 10, backdropFilter: 'blur(5px)', boxShadow: `0 0 20px rgba(22, 255, 189, 0.3)`, animation: 'slideUp 0.5s ease-out' }}>
             <style>{`@keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(50px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
@@ -3160,11 +3220,13 @@ const MapWithChargingStations: React.FC = () => {
             <p style={{ color: textColor, display: 'flex', alignItems: 'center', marginBottom: '8px', fontSize: '1.1em' }}><FaStar style={{ color: '#FFD700', marginRight: '10px', textShadow: '0 0 5px #FFD700' }} />Rating: {selectedStation.rating ? `${selectedStation.rating} / 5` : "N/A"}{selectedStation.user_ratings_total && ` (${selectedStation.user_ratings_total} reviews)`}</p>
             {selectedStation.formatted_phone_number && (<p style={{ color: textColor, display: 'flex', alignItems: 'center', marginBottom: '8px', fontSize: '1.1em' }}><FaPhone style={{ marginRight: '10px', color: glowingGreen }} />Phone: {selectedStation.formatted_phone_number}</p>)}
             
-            <a href={`https://www.google.com/maps/search/?api=1&query=$3${userLocation?.lat},${userLocation?.lng}&destination=${selectedStation.geometry.location.lat()},${selectedStation.geometry.location.lng()}`} target="_blank" rel="noopener noreferrer" style={{ color: glowingCyan, textDecoration: 'none', display: 'flex', alignItems: 'center', marginBottom: '15px', fontWeight: 'bold', fontSize: '1.1em', transition: 'color 0.3s ease', textShadow: `0 0 10px ${glowingCyan}66`, }} onMouseOver={(e) => { e.currentTarget.style.color = '#87CEEB'; e.currentTarget.style.textShadow = `0 0 15px ${glowingCyan}`; }} onMouseOut={(e) => { e.currentTarget.style.color = glowingCyan; e.currentTarget.style.textShadow = `0 0 10px ${glowingCyan}66`; }}>
+            {/* FIX: Corrected Google Maps URL for Navigation */}
+            <a href={`https://www.google.com/maps/dir/?api=1&origin=${userLocation?.lat},${userLocation?.lng}&destination=${selectedStation.geometry.location.lat()},${selectedStation.geometry.location.lng()}`} target="_blank" rel="noopener noreferrer" style={{ color: glowingCyan, textDecoration: 'none', display: 'flex', alignItems: 'center', marginBottom: '15px', fontWeight: 'bold', fontSize: '1.1em', transition: 'color 0.3s ease', textShadow: `0 0 10px ${glowingCyan}66`, }} onMouseOver={(e) => { e.currentTarget.style.color = '#87CEEB'; e.currentTarget.style.textShadow = `0 0 15px ${glowingCyan}`; }} onMouseOut={(e) => { e.currentTarget.style.color = glowingCyan; e.currentTarget.style.textShadow = `0 0 10px ${glowingCyan}66`; }}>
               <FaDirections style={{ marginRight: '10px' }} />
               Start Navigation
             </a>
-            <a href={`https://www.google.com/maps/search/?api=1&query=$3{encodeURIComponent(selectedStation.name)}&query_place_id=${selectedStation.place_id}`} target="_blank" rel="noopener noreferrer" style={{ color: glowingCyan, textDecoration: 'none', display: 'flex', alignItems: 'center', fontWeight: 'bold', fontSize: '1.1em', transition: 'color 0.3s ease', textShadow: `0 0 10px ${glowingCyan}66`, }} onMouseOver={(e) => { e.currentTarget.style.color = '#87CEEB'; e.currentTarget.style.textShadow = `0 0 15px ${glowingCyan}`; }} onMouseOut={(e) => { e.currentTarget.style.color = glowingCyan; e.currentTarget.style.textShadow = `0 0 10px ${glowingCyan}66`; }}>
+            {/* FIX: Corrected Google Maps URL for viewing place details */}
+            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedStation.name)}&query_place_id=${selectedStation.place_id}`} target="_blank" rel="noopener noreferrer" style={{ color: glowingCyan, textDecoration: 'none', display: 'flex', alignItems: 'center', fontWeight: 'bold', fontSize: '1.1em', transition: 'color 0.3s ease', textShadow: `0 0 10px ${glowingCyan}66`, }} onMouseOver={(e) => { e.currentTarget.style.color = '#87CEEB'; e.currentTarget.style.textShadow = `0 0 15px ${glowingCyan}`; }} onMouseOut={(e) => { e.currentTarget.style.color = glowingCyan; e.currentTarget.style.textShadow = `0 0 10px ${glowingCyan}66`; }}>
               View on Google Maps
             </a>
             
