@@ -22,7 +22,7 @@ const AdminSidebar: React.FC = () => {
     { path: '/admin/stations', icon: UsersRound, label: 'Station Management' }, // Changed Icon
     { path: '/admin/settings', icon: Settings, label: 'Settings' },
     { path: '/virtual-queue', icon: UsersRound, label: 'Virtual Queue' }, // Changed Icon
-    { path: '/verification', icon: UsersRound, label: 'Verification' }, // Changed Icon
+    { path: '/admin/verification', icon: UsersRound, label: 'Verification' }, // Changed Icon
 
   ];
 
