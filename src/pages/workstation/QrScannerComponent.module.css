@@ -1,0 +1,138 @@
+/* src/components/QrScannerComponent.module.css */
+
+.qrScannerContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-color: #2c2f4f; /* Dark card background */
+  border-radius: 15px;
+  box-shadow: 0 0 25px rgba(0, 174, 239, 0.5);
+  max-width: 500px;
+  margin: 20px auto; /* Center the component */
+  color: #e0e0e0;
+}
+
+.scannerTitle {
+  font-size: 1.8em;
+  color: #00f0b0; /* Primary green */
+  margin-bottom: 20px;
+  text-shadow: 0 0 10px #00f0b0;
+}
+
+.scannerWindow {
+  width: 100%;
+  max-width: 350px; /* Max width for the video feed */
+  aspect-ratio: 1 / 1; /* Keep it square */
+  border: 3px solid #00aeeF; /* Secondary blue border */
+  border-radius: 10px;
+  overflow: hidden; /* Ensure video stays within bounds */
+  box-shadow: 0 0 20px rgba(0, 174, 239, 0.7);
+  background-color: #000; /* Black background for video area */
+}
+
+/* Styles for the Scanner component's internal video/canvas */
+.scannerWindow video,
+.scannerWindow canvas {
+  width: 100% !important; /* Override inline styles if necessary */
+  height: 100% !important;
+  object-fit: cover; /* Ensures video fills the space */
+}
+
+.scanResult {
+  margin-top: 25px;
+  padding: 15px 20px;
+  background-color: #0f0f1a; /* Even darker background */
+  border-radius: 10px;
+  text-align: center;
+  width: 90%;
+  box-shadow: 0 0 10px rgba(0, 240, 176, 0.3);
+}
+
+.scanResult p {
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.resultText {
+  font-weight: bold;
+  color: #00f0b0; /* Primary green */
+  word-break: break-all; /* Break long URLs */
+  margin-top: 10px;
+  font-size: 1.2em;
+  text-shadow: 0 0 5px #00f0b0;
+}
+
+.clearScanButton {
+  background-color: #00aeeF;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 25px;
+  cursor: pointer;
+  margin-top: 15px;
+  font-size: 1em;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 10px rgba(0, 174, 239, 0.5);
+}
+
+.clearScanButton:hover {
+  background-color: #00C6FF;
+  transform: translateY(-2px);
+  box-shadow: 0 0 15px rgba(0, 174, 239, 0.8);
+}
+
+.cameraError {
+  background-color: #ff4d4d; /* Red for error */
+  color: white;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  margin-top: 20px;
+  box-shadow: 0 0 15px rgba(255, 77, 77, 0.6);
+}
+
+.cameraError p {
+  margin-bottom: 10px;
+  font-size: 1.1em;
+}
+
+.cameraError button {
+  background-color: white;
+  color: #ff4d4d;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 10px;
+  transition: background-color 0.3s ease;
+}
+
+.cameraError button:hover {
+  background-color: #f0f0f0;
+}
+
+@media (max-width: 600px) {
+  .qrScannerContainer {
+    padding: 15px;
+    margin: 10px;
+  }
+  .scannerTitle {
+    font-size: 1.5em;
+  }
+  .scannerWindow {
+    max-width: 280px;
+  }
+  .scanResult {
+    padding: 10px 15px;
+  }
+  .resultText {
+    font-size: 1.1em;
+  }
+  .clearScanButton {
+    padding: 8px 15px;
+    font-size: 0.9em;
+  }
+}

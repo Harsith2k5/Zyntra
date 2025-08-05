@@ -1,0 +1,1269 @@
+/* UserSpecific.module.css */
+
+/* Revised Color Palette */
+:root {
+  --dark-bg: #111111;         /* Deep navy/purple - same */
+  --dark-card-bg: #212121;    /* Slightly lighter dark for cards - same */
+  --header-footer-bg: #0F0F1A; /* Even darker for header/footer contrast - same */
+
+  --primary-green: #00E6A2;   /* Muted bright green, still vibrant but less "loud" */
+  --secondary-blue: #0099DD;  /* Muted vibrant blue, professional feel */
+  --accent-purple: #8A2BE2;   /* A new subtle accent purple for glow depth */
+
+  --text-color-light: #E0E0E0; /* Off-white for general text - same */
+  --text-color-dark: #333333; /* For contrast if needed */
+  --warning-yellow: #FFC107;  /* Slightly less saturated yellow/gold for warnings */
+  --danger-red: #DC3545;      /* More standard red for critical states (e.g., very low battery) */
+
+  --font-family: 'Inter', sans-serif; /* Modern, clean font - same */
+
+  /* Updated Glows with rgba for better blending and subtlety */
+  --glow-light-green: 0 0 6px rgba(0,230,162,0.4), 0 0 10px rgba(0,230,162,0.3);
+  --glow-medium-green: 0 0 10px rgba(0,230,162,0.6), 0 0 20px rgba(0,230,162,0.4);
+  --glow-strong-green: 0 0 15px rgba(0,230,162,0.8), 0 0 30px rgba(0,230,162,0.6);
+
+  --glow-light-blue: 0 0 6px rgba(0,153,221,0.4), 0 0 10px rgba(0,153,221,0.3);
+  --glow-medium-blue: 0 0 10px rgba(0,153,221,0.6), 0 0 20px rgba(0,153,221,0.4);
+  --glow-strong-blue: 0 0 15px rgba(0,153,221,0.8), 0 0 30px rgba(0,153,221,0.6);
+
+  --glow-light-yellow: 0 0 6px rgba(255,193,7,0.4), 0 0 10px rgba(255,193,7,0.3);
+  --glow-light-red: 0 0 6px rgba(220,53,69,0.4), 0 0 10px rgba(220,53,69,0.3);
+}
+
+.dashboardContainer {
+    font-family: var(--font-family);
+    background-color: var(--dark-bg);
+    color: var(--text-color-light);
+    min-height: 100vh;
+    padding: 40px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+}
+
+/* Scrollbar styling for the dashboardContainer */
+.dashboardContainer::-webkit-scrollbar {
+    width: 8px;
+}
+
+.dashboardContainer::-webkit-scrollbar-track {
+    background: var(--dark-bg);
+    border-radius: 10px;
+}
+
+.dashboardContainer::-webkit-scrollbar-thumb {
+    background-color: var(--primary-green);
+    border-radius: 10px;
+    border: 2px solid var(--dark-bg);
+}
+
+.dashboardContainer { /* Firefox scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-green) var(--dark-bg);
+}
+
+.dashboardTitle {
+    font-size: 3.5em;
+    font-weight: 800;
+    color: var(--primary-green);
+    text-shadow: var(--glow-strong-green); /* Use updated green glow */
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    text-align: center;
+}
+
+.icon {
+    font-size: 0.9em;
+    vertical-align: middle;
+    color: rgba(0, 230, 162);
+    text-shadow: var(--glow-medium-blue); /* Use updated blue glow */
+}
+
+.infoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    width: 100%;
+    max-width: 1200px;
+    margin-bottom: 40px;
+}
+
+.card {
+    background-color: var(--dark-card-bg);
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 0 20px rgba(0, 230, 162, 0.3); /* Green glow for sections */
+    border: 1px solid rgba(0, 230, 162, 0.4);
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+     box-shadow: 0 0 20px rgba(0, 230, 162, 0.8); /* Green glow for sections */
+}
+
+.cardTitle {
+    font-size: 1.8em;
+    font-weight: 700;
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--primary-green);
+    text-shadow: var(--glow-light-green); /* Use updated green glow */
+    border-bottom: 2px solid var(--primary-green);
+    padding-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.cardTitle .icon {
+    font-size: 1em;
+    color: var(--primary-green);
+    text-shadow: var(--glow-light-green); /* Match title color */
+}
+
+.cardText {
+    font-size: 2.2em;
+    font-weight: 600;
+    margin-bottom: 10px;
+    line-height: 1.2;
+    color: var(--text-color-light);
+}
+
+/* Specific colors for battery status */
+.batteryHigh {
+    color: var(--primary-green) !important;
+    text-shadow: var(--glow-light-green);
+}
+
+.batteryMedium {
+    color: var(--warning-yellow) !important;
+    text-shadow: var(--glow-light-yellow); /* Use updated yellow glow */
+}
+
+.batteryLow {
+    color: var(--danger-red) !important; /* Use danger red */
+    text-shadow: var(--glow-light-red); /* Use updated red glow */
+}
+
+/* Charging Status text */
+.chargingStatus {
+    font-size: 1.1em; /* Slightly smaller */
+    font-weight: 600;
+    color: var(--primary-green);
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center status message */
+    gap: 8px;
+    text-shadow: 0 0 8px var(--primary-green);
+    min-height: 1.5em; /* Ensure consistent height for messages */
+}
+
+.spinnerIcon {
+    font-size: 1.2em;
+    animation: spin 1.5s linear infinite; /* Spin animation */
+    color: var(--primary-green);
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Progress Bar for Battery */
+.progressBar {
+    width: 100%;
+    height: 15px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 15px;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+.progressBarFill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.5s ease-in-out, background-color 0.3s ease-in-out;
+    box-shadow: 0 0 10px currentColor; /* Glow based on fill color */
+}
+
+.batteryHighFill { background-color: var(--primary-green); }
+.batteryMediumFill { background-color: var(--warning-yellow); }
+.batteryLowFill { background-color: var(--danger-red); }
+
+
+/* Green Credits specific styling */
+.greenCreditsValue {
+    font-size: 1.5em;
+    color: var(--primary-green);
+    text-shadow: var(--glow-medium-green);
+}
+
+.subText {
+    font-size: 0.9em;
+    color: rgba(224, 224, 224, 0.7);
+    margin-bottom: 15px;
+}
+
+.actionButton {
+    background-color: var(--primary-green);
+    color: var(--dark-bg);
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 0 15px rgba(0,230,162,0.8); /* Use updated green glow */
+}
+
+.actionButton:hover {
+    background-color: var(--primary-green); /* Keep same color, only change glow */
+    box-shadow: 0 0 25px rgba(0,230,162,1); /* Stronger glow on hover */
+    transform: translateY(-2px);
+}
+
+.actionButton:active {
+    transform: translateY(0);
+    box-shadow: 0 0 10px rgba(0,230,162,0.6);
+}
+
+.buttonIcon {
+    font-size: 1.2em;
+}
+
+
+/* Charging Controls Section */
+.chargingControlSection,
+.amenitiesSection,
+.recentActivity {
+    background-color: var(--dark-card-bg);
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 0 20px rgba(0, 230, 162, 0.3); /* Green glow for sections */
+    border: 1px solid rgba(0, 230, 162, 0.4);
+    width: 100%;
+    max-width: 1200px;
+    box-sizing: border-box;
+    margin-bottom: 40px;
+    text-align: center;
+}
+
+.sectionTitle {
+    font-size: 2em;
+    font-weight: 700;
+    color:    rgb(0, 230, 162);
+    text-shadow: rgba(0, 230, 162); /* Use updated blue glow */
+    border-bottom: 2px solid    rgb(0, 230, 162);
+    padding-bottom: 10px;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.subSectionTitle {
+    font-size: 1.5em;
+    color: var(--primary-green);
+    text-shadow: var(--glow-light-green);
+    margin-bottom: 20px;
+}
+
+.chargeInputGroup {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap; /* Allow wrapping on small screens */
+}
+
+.inputLabel {
+    font-size: 1.1em;
+    color: var(--text-color-light);
+    font-weight: 500;
+}
+
+.chargeInputField {
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 230, 162);
+    color: var(--text-color-light);
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 1.1em;
+    width: 120px;
+    text-align: center;
+    outline: none;
+    box-shadow: 0 0 20px rgba(0, 230, 162, 0.3); /* Green glow for sections */
+    
+    transition: box-shadow 0.3s ease;
+}
+
+.chargeInputField:focus {
+    box-shadow: 0 0 15px rgba(0, 230, 162);
+}
+
+.chargeInputField:disabled {
+    opacity: 0.5; /* More visible disabled state */
+    cursor: not-allowed;
+    box-shadow: none;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-color: rgba(0, 153, 221, 0.2);
+}
+
+.estimationText {
+    font-size: 1.2em;
+    color: var(--primary-green);
+    margin-bottom: 30px;
+    font-weight: 600;
+    text-shadow: var(--glow-light-green);
+}
+
+.buttonGroup {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.controlButton {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+}
+
+.startButton {
+    background-color: var(--primary-green);
+    color: var(--dark-bg);
+    box-shadow: 0 0 15px rgba(0,230,162,0.8);
+}
+
+.startButton:hover:not(:disabled) {
+    background-color: var(--primary-green); /* Keep same color, only change glow */
+    box-shadow: 0 0 25px rgba(0,230,162,1);
+    transform: translateY(-2px);
+}
+
+.startButton:disabled {
+    background-color: rgba(0,230,162,0.3); /* Muted green for disabled */
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.stopButton {
+    background-color: var(--danger-red); /* Use danger red */
+    color: var(--dark-bg);
+    box-shadow: 0 0 15px rgba(220,53,69,0.8);
+}
+
+.stopButton:hover:not(:disabled) {
+    background-color: var(--danger-red); /* Keep same color, only change glow */
+    box-shadow: 0 0 25px rgba(220,53,69,1);
+    transform: translateY(-2px);
+}
+
+.stopButton:disabled {
+    background-color: rgba(220,53,69,0.3); /* Muted red for disabled */
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+
+/* Amenities Section */
+.amenitiesGrid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 25px;
+}
+
+.amenityItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background-color: rgba(0, 0, 0, 0.1); /* Subtle blue background */
+    padding: 15px 20px;
+    border-radius: 15px;
+    box-shadow: 0 0 20px rgba(0, 230, 162, 0.3); /* Green glow for sections */
+    border: 1px solid rgba(0, 230, 162, 0.4);
+    transition: transform 0.2s ease;
+}
+
+.amenityItem:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0 15px rgba(0, 153, 221, 0.4);
+}
+
+.amenityIcon {
+    font-size: 2.2em;
+    color: rgba(0, 230, 162);
+    text-shadow: rgba(0, 230, 162);
+}
+
+.amenityText {
+    font-size: 1em;
+    font-weight: 500;
+    color: var(--text-color-light);
+}
+
+.noAmenities {
+    font-size: 1em;
+    color: rgba(224, 224, 224, 0.6);
+    padding: 15px;
+    border: 1px dashed rgba(224, 224, 224, 0.3);
+    border-radius: 10px;
+}
+
+
+/* Enhanced Recent Activity Section */
+.recentActivity {
+    /* Styles are mostly inherited from .chargingControlSection */
+}
+
+.activityList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+}
+
+.activityList li {
+    font-size: 1.1em;
+    line-height: 1.6;
+    margin-bottom: 10px;
+    padding-left: 25px;
+    position: relative;
+    color: var(--text-color-light);
+}
+
+.activityList li::before {
+    content: '⚡';
+    position: absolute;
+    left: 0;
+    color: var(--primary-green);
+    text-shadow: var(--glow-light-green);
+}
+
+
+
+.dashboardContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+  min-height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.dashboardTitle {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: #4CAF50;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.icon {
+  font-size: 1.5rem;
+}
+
+/* Card Styles */
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background-color: #2d2d2d;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+.cardTitle {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  color: #4CAF50;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cardText {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+}
+
+/* Battery Styles */
+.batteryHigh {
+  color: #4CAF50;
+}
+
+.batteryMedium {
+  color: #FFC107;
+}
+
+.batteryLow {
+  color: #F44336;
+}
+
+.batteryHighFill {
+  background-color: #4CAF50;
+}
+
+.batteryMediumFill {
+  background-color: #FFC107;
+}
+
+.batteryLowFill {
+  background-color: #F44336;
+}
+
+.progressBar {
+  height: 10px;
+  background-color: #444;
+  border-radius: 5px;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  border-radius: 5px;
+}
+
+.chargingStatus {
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.spinnerIcon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Green Credits */
+.greenCreditsValue {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #4CAF50;
+}
+
+.subText {
+  font-size: 0.85rem;
+  color: #aaa;
+  margin: 0.5rem 0;
+}
+
+.actionButton {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  transition: background-color 0.3s;
+}
+
+.actionButton:hover {
+  background-color: #3d8b40;
+}
+
+.actionButton:disabled {
+  background-color: #666;
+  cursor: not-allowed;
+}
+
+.buttonIcon {
+  font-size: 1rem;
+}
+
+/* Charging Controls */
+.chargingControlSection {
+  background-color: #2d2d2d;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: #4CAF50;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.subSectionTitle {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: #e0e0e0;
+}
+
+.chargeInputGroup {
+  margin-bottom: 1rem;
+}
+
+.inputLabel {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.percentageSlider {
+  width: 100%;
+  margin: 0.5rem 0;
+  accent-color: #4CAF50;
+}
+
+.percentageValue {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  color: #e0e0e0;
+}
+
+.percentageIcon {
+  color: #4CAF50;
+}
+
+.chargeInputField {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background-color: #3d3d3d;
+  color: #e0e0e0;
+}
+
+.estimationText {
+  font-size: 0.95rem;
+  margin: 1rem 0;
+  color: #aaa;
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.controlButton {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.startButton {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.startButton:hover {
+  background-color: #3d8b40;
+}
+
+.startButton:disabled {
+  background-color: #666;
+  cursor: not-allowed;
+}
+
+.stopButton {
+  background-color: #F44336;
+  color: white;
+}
+
+.stopButton:hover {
+  background-color: #d32f2f;
+}
+
+.stopButton:disabled {
+  background-color: #666;
+  cursor: not-allowed;
+}
+
+/* Amenities */
+.amenitiesSection {
+  background-color: #2d2d2d;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.amenitiesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.amenityItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background-color: #3d3d3d;
+  border-radius: 4px;
+}
+
+.amenityIcon {
+  color: #4CAF50;
+  font-size: 1.2rem;
+}
+
+.amenityText {
+  font-size: 0.9rem;
+}
+
+/* AI Advice */
+.aiAdviceCard {
+  background-color: #2d2d2d;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  border-left: 4px solid #4CAF50;
+}
+
+.aiAdviceTitle {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: #4CAF50;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.aiAdviceText {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #e0e0e0;
+}
+
+.loadingAdvice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #aaa;
+}
+
+/* Coupons */
+.couponsSection {
+  background-color: #2d2d2d;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.couponsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.couponCard {
+  background-color: #3d3d3d;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #4CAF50;
+}
+
+.couponHeader {
+  background-color: #4CAF50;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.couponIcon {
+  font-size: 1.2rem;
+}
+
+.couponDiscount {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.couponBody {
+  padding: 1rem;
+}
+
+.couponCode {
+  font-family: monospace;
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: #4CAF50;
+}
+
+.couponValid {
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+/* Modals */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background-color: #2d2d2d;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.modal h3 {
+  margin-top: 0;
+  color: #4CAF50;
+  font-size: 1.5rem;
+}
+
+.paymentDetails {
+  margin: 1.5rem 0;
+}
+
+.paymentDetails p {
+  margin: 0.75rem 0;
+  font-size: 1.1rem;
+}
+
+.finalPrice {
+  font-size: 1.3rem;
+  margin: 1.5rem 0;
+  font-weight: bold;
+}
+
+.finalPrice span {
+  color: #4CAF50;
+}
+
+.discountBadge {
+  background-color: #4CAF50;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+}
+
+.couponSection {
+  margin: 1.5rem 0;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.couponInput {
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background-color: #3d3d3d;
+  color: #e0e0e0;
+}
+
+.applyCouponButton {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modalButtons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.cancelButton {
+  background-color: #666;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cancelButton:hover {
+  background-color: #555;
+}
+
+.confirmButton {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.confirmButton:hover {
+  background-color: #3d8b40;
+}
+
+.couponDisplay {
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+.couponIcon {
+  font-size: 3rem;
+  color: #4CAF50;
+  margin-bottom: 1rem;
+}
+
+.couponCode {
+  font-family: monospace;
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 1rem 0;
+  color: #4CAF50;
+}
+
+.validUntil {
+  color: #aaa;
+  font-size: 0.9rem;
+}
+
+.closeButton {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.closeButton:hover {
+  background-color: #3d8b40;
+}
+.backButton {
+  background-color: #444;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: block;
+  margin: 0 auto;
+  transition: background-color 0.3s;
+}
+
+.backButton:hover {
+  background-color: #555;
+}
+
+/* Loading and Error States */
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #aaa;
+  font-size: 1.2rem;
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #F44336;
+  font-size: 1.2rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .dashboardContainer {
+    padding: 1rem;
+  }
+  
+  .dashboardTitle {
+    font-size: 1.5rem;
+  }
+  
+  .infoGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .buttonGroup {
+    flex-direction: column;
+  }
+  
+  .controlButton {
+    width: 100%;
+  }
+  
+  .amenitiesGrid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}
+
+.suggestionsCard {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.suggestionsTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  color: #2c3e50;
+}
+
+.suggestionsList {
+  list-style-type: none;
+  padding: 0;
+  margin: 0 0 15px 0;
+}
+
+.suggestionItem {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.suggestionItem:last-child {
+  border-bottom: none;
+}
+
+.urgentAlert {
+  background: #fff3cd;
+  color: #856404;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.suggestionAction {
+  background: #e3f2fd;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.suggestionAction:hover {
+  background: #bbdefb;
+}
+/* Responsive Adjustments */
+@media (max-width: 1200px) {
+    .dashboardTitle {
+        font-size: 3em;
+    }
+    .infoGrid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+    }
+    .card {
+        padding: 25px;
+    }
+    .cardTitle {
+        font-size: 1.6em;
+    }
+    .cardText {
+        font-size: 2em;
+    }
+    .sectionTitle {
+        font-size: 1.8em;
+    }
+    .subSectionTitle {
+        font-size: 1.3em;
+    }
+    .activityList li {
+        font-size: 1em;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboardContainer {
+        padding: 20px;
+    }
+    .dashboardTitle {
+        font-size: 2.5em;
+        gap: 10px;
+        margin-bottom: 30px;
+        flex-direction: column;
+    }
+    .dashboardTitle .icon {
+        font-size: 1.2em;
+    }
+    .infoGrid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    .card {
+        padding: 20px;
+    }
+    .cardTitle {
+        font-size: 1.4em;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .cardText {
+        font-size: 1.8em;
+    }
+    .progressBar {
+        height: 12px;
+    }
+    .chargingStatus {
+        font-size: 1em;
+    }
+    .sectionTitle {
+        font-size: 1.6em;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .subSectionTitle {
+        font-size: 1.2em;
+    }
+    .chargeInputGroup {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .chargeInputField {
+        width: 100%;
+        max-width: 120px; /* Still keep a max-width */
+        font-size: 1em;
+    }
+    .inputLabel {
+        font-size: 1em;
+    }
+    .estimationText {
+        font-size: 1.1em;
+    }
+    .buttonGroup {
+        flex-direction: column;
+        gap: 15px;
+    }
+    .controlButton {
+        width: 80%;
+        margin: 0 auto;
+        padding: 10px 20px;
+    }
+    .activityList li {
+        font-size: 0.95em;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboardContainer {
+        padding: 15px;
+    }
+    .dashboardTitle {
+        font-size: 2em;
+        text-align: center;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .dashboardTitle .icon {
+        font-size: 1.2em;
+    }
+    .card {
+        padding: 15px;
+    }
+    .cardTitle {
+        font-size: 1.2em;
+        margin-bottom: 10px;
+    }
+    .cardText {
+        font-size: 1.5em;
+    }
+    .greenCreditsValue {
+        font-size: 1.2em;
+    }
+    .sectionTitle {
+        font-size: 1.4em;
+    }
+    .subSectionTitle {
+        font-size: 1.1em;
+    }
+    .activityList li {
+        font-size: 0.9em;
+        padding-left: 20px;
+    }
+    .activityList li::before {
+        font-size: 0.9em;
+    }
+    .controlButton {
+        width: 90%;
+    }
+}
