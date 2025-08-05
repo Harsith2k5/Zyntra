@@ -2045,7 +2045,7 @@ const findStations = useCallback(async () => {
   setCurrentLoadingMessageIndex(0);
 
   try {
-    const response = await fetch('http://localhost:5501/find_ev_stations', {
+    const response = await fetch('http://localhost:5502/find_ev_stations', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
