@@ -18,10 +18,11 @@ const AdminSidebar: React.FC = () => {
     { path: '/admin/overview', icon: BarChart2, label: 'Overview' },
     { path: '/admin/usage', icon: Activity, label: 'Usage Trends' },
     { path: '/admin/forecast', icon: Clock, label: 'Forecast' },
+        { path: '/workstation/dummy', icon: MonitorSmartphone, label: 'Zyntra Queue' } // Changed Icon
     { path: '/admin/stations', icon: UsersRound, label: 'Station Management' }, // Changed Icon
     { path: '/admin/settings', icon: Settings, label: 'Settings' },
     { path: '/virtual-queue', icon: UsersRound, label: 'Virtual Queue' }, // Changed Icon
-    { path: '/workstation/dummy', icon: MonitorSmartphone, label: 'Zyntra Queue' } // Changed Icon
+
   ];
 
   // This effect handles the automatic fullscreen logic
