@@ -481,31 +481,6 @@ const handleBatteryUpdate = async (newBatteryLevel: number) => {
           </motion.div>
         </div>
 
-        {/* --- Explore More Features (Moved Up) --- */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mb-8"
-        >
-          <GlassCard className="p-6 border border-white/10 shadow-lg shadow-black/30">
-            <h3 className="text-white font-semibold text-lg mb-4">Explore More Features</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {advancedFeatures.map((feature, index) => (
-                <button
-                  key={index}
-                  onClick={feature.onClick}
-                  className="flex flex-col items-center space-y-2 p-4 rounded-2xl bg-white/10 hover:bg-white/15 transition-all duration-200 hover:scale-105 min-h-[110px] justify-center border border-white/5"
-                >
-                  <feature.icon className="w-7 h-7 text-[#FCEE09]" />
-                  <span className="text-white/90 text-sm font-medium text-center">
-                    {feature.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </GlassCard>
-        </motion.div>
 
         {/* --- Your Eco Impact (Moved Down) --- */}
         <motion.div
