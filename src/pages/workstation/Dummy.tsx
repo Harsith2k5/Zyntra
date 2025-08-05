@@ -711,7 +711,36 @@ const Dummy: React.FC = () => {
 
   const handleChargeClick = async (booking: Booking) => {
     // ... (function implementation is unchanged)
-    try { const currentTime = new Date(); const [time, period] = booking.slotTime.split(' '); let [hours, minutes] = time.split(':').map(Number); if (period === 'PM' && hours < 12) hours += 12; if (period === 'AM' && hours === 12) hours = 0; const slotTime = new Date(); slotTime.setHours(hours, minutes, 0, 0); if (currentTime <= slotTime) { const esp32IP = "http://192.168.133.97"; const unlockUrl = `${esp32IP}/unlock?pin=${booking.pin}&userId=${booking.userId}`; await fetch(unlockUrl); alert(`✅ PIN sent for ${booking.userName}. Waiting for verification...`); const checkSuccess = async () => { const res = await fetch(`${esp32IP}/verify-success`); const json = await res.json(); if (json.status === "success") { localStorage.setItem('uid', booking.userId); navigate(`/workstation/userspecific/${booking.userId}`); } else { setTimeout(checkSuccess, 1000); } }; checkSuccess(); } else { const timeDiff = Math.ceil((slotTime.getTime() - currentTime.getTime()) / 60000); alert(`⏳ Too early to start charging for ${booking.userName}. Please wait ${timeDiff} minute(s).`); } } catch (error) { console.error("ESP32 communication failed:", error); alert("🚫 Failed to communicate with the ESP32. Check your network or device."); }
+try {
+  const currentTime = new Date();
+  const [time, period] = booking.slotTime.split(' ');
+  let [hours, minutes] = time.split(':').map(Number);
+  
+  // Convert to 24-hour format
+  if (period === 'PM' && hours < 12) hours += 12;
+  if (period === 'AM' && hours === 12) hours = 0;
+  
+  const slotTime = new Date();
+  slotTime.setHours(hours, minutes, 0, 0);
+  
+  if (currentTime <= slotTime) {
+    const esp32IP = "http://192.168.133.97";
+    const unlockUrl = `${esp32IP}/unlock?pin=${booking.pin}&userId=${booking.userId}`;
+    
+    // Just send the unlock command and navigate immediately
+    await fetch(unlockUrl);
+    localStorage.setItem('uid', booking.userId);
+    navigate(`/workstation/userspecific/${booking.userId}`);
+    
+    alert(`✅ PIN sent for ${booking.userName}. Proceeding to user dashboard...`);
+  } else {
+    const timeDiff = Math.ceil((slotTime.getTime() - currentTime.getTime()) / 60000);
+    alert(`⏳ Too early to start charging for ${booking.userName}. Please wait ${timeDiff} minute(s).`);
+  }
+} catch (error) {
+  console.error("ESP32 communication failed:", error);
+  alert("🚫 Failed to communicate with the ESP32. Check your network or device.");
+}
   };
   
   const renderNearbyStations = () => {
