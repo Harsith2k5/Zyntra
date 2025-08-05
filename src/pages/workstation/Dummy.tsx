@@ -724,7 +724,7 @@ try {
   slotTime.setHours(hours, minutes, 0, 0);
   
   if (currentTime <= slotTime) {
-    const esp32IP = "http://192.168.133.97";
+    const esp32IP = "https://451e08d1ad9a.ngrok-free.app ";
     const unlockUrl = `${esp32IP}/unlock?pin=${booking.pin}&userId=${booking.userId}`;
     
     // Just send the unlock command and navigate immediately
