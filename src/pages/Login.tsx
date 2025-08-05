@@ -166,6 +166,7 @@ export default Login;
  */
 // login.tsx (Ensure you have this version)
 import React, { useState } from 'react';
+import { getDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, Car } from 'lucide-react';
@@ -265,41 +266,29 @@ const Login: React.FC = () => {
         setEvName('');
         setEvModel('');
 
-      } else { // Sign In
-        console.log('Attempting sign in...');
-        const userCred = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCred.user;
-        console.log('User signed in successfully.');
+      } 
+      // Replace the sign-in section with:
+ else { // Sign In
+  console.log('Attempting sign in...');
+  const userCred = await signInWithEmailAndPassword(auth, email, password);
+  const user = userCred.user;
+  console.log('User signed in successfully.');
 
-        // --- Check if email is verified after successful sign-in ---
-        // Reload user data to get the latest emailVerified status
-        await user.reload();
-/*         if (!user.emailVerified) {
-          setErrorMsg('Please verify your email address before logging in. A verification link was sent to your inbox.');
-          await sendEmailVerification(user); // Re-send verification email
-          setInfoMsg('Another verification email has been sent. Please check your inbox.');
-          await signOut(auth); // Sign out the user if email is not verified
-          setIsLoading(false);
-          return;
-        } */
-        // Replace this block in handleAuth():
-        if (user.emailVerified) {
-          // If email is verified, update Firestore status
-          const userRef = doc(db, 'userProfiles', user.uid);
-          await setDoc(userRef, { emailVerified: true }, { merge: true });
-          console.log('User email verified and Firestore status updated.');
+  // Reload to get latest verification status
+  await user.reload();
+  
+  if (!user.emailVerified) {
+    setErrorMsg('Please verify your email before logging in.');
+    await sendEmailVerification(user);
+    setInfoMsg('Verification email resent. Please check your inbox.');
+    await signOut(auth);
+    setIsLoading(false);
+    return;
+  }
 
-          // Navigate only if email is verified
-          navigate('/role-select');  // <-- This stays, but we'll modify the RoleSelector flow
-        }
-        // If email is verified, update Firestore status
-        const userRef = doc(db, 'userProfiles', user.uid);
-        await setDoc(userRef, { emailVerified: true }, { merge: true });
-        console.log('User email verified and Firestore status updated.');
-
-        // Navigate only if email is verified
-        navigate('/role-select');
-      }
+  // ALWAYS go to role-select after sign in
+  navigate('/role-select', { replace: true });
+}
     } catch (error: any) {
       console.error('Authentication Error:', error.code, error.message, error);
       switch (error.code) {

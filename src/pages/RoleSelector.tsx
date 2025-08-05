@@ -32,33 +32,32 @@ const RoleSelector: React.FC = () => {
   ];
 
   const handleRoleSelect = async (roleId: string, path: string) => {
-    setLoading(true);
-    setError('');
-    
-    const user = auth.currentUser;
-    if (!user) {
-      setError('No authenticated user found');
-      setLoading(false);
-      return;
-    }
+  setLoading(true);
+  setError('');
+  
+  const user = auth.currentUser;
+  if (!user) {
+    setError('No authenticated user found');
+    setLoading(false);
+    navigate('/login');
+    return;
+  }
 
-    try {
-      // Update Firestore with selected role
-      const userRef = doc(db, 'userProfiles', user.uid);
-      await setDoc(userRef, { 
-        role: roleId,
-        lastUpdated: new Date() 
-      }, { merge: true });
+  try {
+    const userRef = doc(db, 'userProfiles', user.uid);
+    await setDoc(userRef, { 
+      role: roleId,
+      lastUpdated: new Date() 
+    }, { merge: true });
 
-      // Navigate to selected dashboard
-      navigate(path);
-    } catch (err) {
-      console.error("Role selection failed:", err);
-      setError('Failed to save role selection. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    navigate(path, { replace: true });
+  } catch (err) {
+    console.error("Role selection failed:", err);
+    setError('Failed to save role selection. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center px-4">

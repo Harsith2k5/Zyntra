@@ -871,6 +871,7 @@ export interface UserProfileData {
   lastUpdated?: Date;
   profilePictureUrl?: string;
   emailVerified?: boolean;
+   role?: 'user' | 'admin'; 
 }
 
 function App() {
@@ -932,6 +933,7 @@ function App() {
                 walletBalance: data.walletBalance || 0,
 lastUpdated: data.lastUpdated ? (data.lastUpdated.toDate ? data.lastUpdated.toDate() : new Date(data.lastUpdated)) : new Date(),
                 profilePictureUrl: data.profilePictureUrl || undefined,
+                 role: data.role || undefined ,
                 emailVerified: true,
               } as UserProfileData);
               setError(null);
@@ -1018,21 +1020,18 @@ lastUpdated: data.lastUpdated ? (data.lastUpdated.toDate ? data.lastUpdated.toDa
   const isUserFullyReady = isAuthenticated && isEmailVerified && hasProfileData;
 
   // Inline component for protected routes (similar to PrivateRoute concept, but directly in App.tsx)
-  const ProtectedRouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    if (isUserFullyReady) {
-      return <>{children}</>;
-    } else if (isAuthenticated && isEmailVerified && !hasProfileData) {
-      // User is logged in and verified, but profile data is missing (needs onboarding)
-      return <Navigate to="/onboarding" replace />;
-    } else if (isAuthenticated && !isEmailVerified) {
-      // User is logged in but email is not verified
-      // IMPORTANT: Login component should handle sending verification and signing out unverified users.
-      // This redirect ensures they stay on login or are sent back there until verified.
-      return <Navigate to="/login" replace />;
-    } else {
-      // Not authenticated at all
+  const ProtectedRouteGuard: React.FC<{ children: React.ReactNode, requiredRole?: 'user' | 'admin' }> = 
+  ({ children, requiredRole }) => {
+    if (!isUserFullyReady) {
       return <Navigate to="/login" replace />;
     }
+    
+    // If route requires specific role and user doesn't have it
+    if (requiredRole && userData?.role !== requiredRole) {
+      return <Navigate to={userData?.role === 'admin' ? '/admin/overview' : '/dashboard'} replace />;
+    }
+    
+    return <>{children}</>;
   };
 
 
@@ -1056,14 +1055,14 @@ lastUpdated: data.lastUpdated ? (data.lastUpdated.toDate ? data.lastUpdated.toDa
             element={isUserFullyReady ? <Navigate to="/dashboard" replace /> : <Login />}
           />
 
-          <Route
-            path="/role-select"
-            element={
-              isAuthenticated && isEmailVerified 
-                ? <RoleSelector />  // <-- Only allow if verified
-                : <Navigate to="/login" replace />  // <-- Otherwise kick back to login
-            }
-          />
+<Route
+  path="/role-select"
+  element={
+    isAuthenticated && isEmailVerified 
+      ? <RoleSelector /> // Always show selector if authenticated
+      : <Navigate to="/login" replace />
+  }
+/>
 
           <Route
             path="/onboarding"
