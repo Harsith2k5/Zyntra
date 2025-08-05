@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+/* import React, { useState, useEffect } from 'react';
 import { Battery, MapPin, Clock, Car, Play, StopCircle, Zap, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
 import GlassCard from '../components/ui/GlassCard';
@@ -137,7 +137,6 @@ const response = await fetch('http://localhost:5501/api/estimate_battery', {
           </div>
         </div>
 
-        {/* Mode-specific controls */}
         {mode === 'idle' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -213,7 +212,6 @@ const response = await fetch('http://localhost:5501/api/estimate_battery', {
           </div>
         )}
 
-        {/* Results display */}
         <div className="pt-4 border-t border-white/10">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-3">
@@ -260,7 +258,6 @@ const response = await fetch('http://localhost:5501/api/estimate_battery', {
           )}
         </div>
 
-        {/* Charging suggestions */}
         {result?.charging_suggestions && (
           <div className="pt-3 border-t border-white/10">
             <h4 className="text-white/80 text-sm mb-1">Suggestions</h4>
@@ -274,6 +271,195 @@ const response = await fetch('http://localhost:5501/api/estimate_battery', {
           </div>
         )}
       </div>
+    </GlassCard>
+  );
+};
+
+export default BatteryEstimator; */
+// src/pages/BatteryEstimator.tsx
+import React, { useState, useEffect } from 'react';
+// FIX 1: Replaced non-existent 'LoaderCircle' with 'Loader2'
+import { Battery, Power, Route, Loader2 } from 'lucide-react'; 
+import GlassCard from '../components/ui/GlassCard';
+import NeonButton from '../components/ui/NeonButton';
+
+// Define the shape of props this component expects
+interface BatteryEstimatorProps {
+  userData: {
+    id?: string;
+    evName: string;
+    evModel: string;
+    batteryRemaining: number;
+    vehicleRange?: number; // Max range of the vehicle in km
+  };
+  // This function will be passed from Dashboard.tsx to handle the actual DB update
+  onUpdateBattery: (newLevel: number) => void; 
+}
+
+// Define the structure of the backend response for idle estimation
+interface IdleEstimateResponse {
+    estimatedDurationHours: number;
+    message: string;
+}
+
+const BatteryEstimator: React.FC<BatteryEstimatorProps> = ({ userData, onUpdateBattery }) => {
+  const [estimationMode, setEstimationMode] = useState<'idle' | 'travel'>('idle');
+  
+  // State for the controlled input field for battery level
+  const [batteryInput, setBatteryInput] = useState<string>(userData.batteryRemaining.toString());
+  
+  // State for travel distance input
+  const [travelDistance, setTravelDistance] = useState<string>('');
+
+  // State for holding estimation results
+  const [idleEstimate, setIdleEstimate] = useState<string | null>(null);
+  const [travelEstimate, setTravelEstimate] = useState<string | null>(null);
+
+  // State for loading indicators
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isEstimating, setIsEstimating] = useState(false);
+
+  // Keep the input field in sync if the prop changes from outside
+  useEffect(() => {
+    setBatteryInput(userData.batteryRemaining.toString());
+  }, [userData.batteryRemaining]);
+
+  const handleUpdateClick = async () => {
+    const newLevel = parseInt(batteryInput, 10);
+    if (!isNaN(newLevel) && newLevel >= 0 && newLevel <= 100) {
+      setIsUpdating(true);
+      await onUpdateBattery(newLevel); // Call the function passed from Dashboard
+      setIsUpdating(false);
+    } else {
+      alert("Please enter a valid battery percentage (0-100).");
+    }
+  };
+  
+  const handleIdleEstimate = async () => {
+    setIsEstimating(true);
+    setIdleEstimate(null);
+    try {
+      const response = await fetch('http://localhost:5501/api/estimate/idle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          evName: userData.evName,
+          evModel: userData.evModel,
+          batteryPercentage: parseInt(batteryInput, 10),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const data: IdleEstimateResponse = await response.json();
+      setIdleEstimate(data.message);
+
+    } catch (error) {
+      console.error("Failed to fetch idle estimate:", error);
+      setIdleEstimate("Error: Could not retrieve estimate.");
+    } finally {
+      setIsEstimating(false);
+    }
+  };
+
+  const handleTravelEstimate = () => {
+    const distance = parseFloat(travelDistance);
+    const currentBattery = parseInt(batteryInput, 10);
+    const maxRange = userData.vehicleRange || 400; // Default to 400km if not provided
+
+    if (isNaN(distance) || distance <= 0) {
+      setTravelEstimate("Please enter a valid distance.");
+      return;
+    }
+
+    const batteryConsumed = (distance / maxRange) * 100;
+    const remainingBattery = currentBattery - batteryConsumed;
+
+    if (remainingBattery < 0) {
+      setTravelEstimate(`Trip not possible. This trip requires approx. ${batteryConsumed.toFixed(1)}% battery.`);
+    } else {
+      setTravelEstimate(`After a ${distance} km trip, you will have approx. ${remainingBattery.toFixed(1)}% battery remaining.`);
+    }
+  };
+
+
+  return (
+    <GlassCard className="p-6 border border-[#FCEE09]/20 shadow-lg shadow-[#FCEE09]/10">
+      <h3 className="text-white font-semibold text-xl mb-4">Battery & Range Estimator</h3>
+      
+      {/* Battery Level Input and Update */}
+      <div className="flex items-center gap-4 mb-6">
+        <div className="relative flex-grow">
+          <Battery className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
+          <input
+            type="number"
+            value={batteryInput}
+            onChange={(e) => setBatteryInput(e.target.value)}
+            placeholder="Enter Battery %"
+            className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-10 pr-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#FCEE09]"
+            min="0"
+            max="100"
+          />
+        </div>
+        {/* FIX 2: Removed the non-existent 'color' prop */}
+        <NeonButton onClick={handleUpdateClick} size="sm" disabled={isUpdating}>
+          {/* FIX 1: Using Loader2 here */}
+          {isUpdating ? <Loader2 className="animate-spin" /> : 'Set'}
+        </NeonButton>
+      </div>
+
+      {/* Mode Toggle */}
+      <div className="flex bg-black/30 rounded-lg p-1 mb-4">
+        <button 
+          onClick={() => setEstimationMode('idle')}
+          className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${estimationMode === 'idle' ? 'bg-[#FCEE09] text-black' : 'text-white/70 hover:bg-white/10'}`}
+        >
+          <Power className="w-4 h-4 inline-block mr-2" />
+          Idle Standby
+        </button>
+        <button 
+          onClick={() => setEstimationMode('travel')}
+          className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${estimationMode === 'travel' ? 'bg-[#16FFBD] text-black' : 'text-white/70 hover:bg-white/10'}`}
+        >
+          <Route className="w-4 h-4 inline-block mr-2" />
+          Trip Planner
+        </button>
+      </div>
+
+      {/* Conditional Estimation UI */}
+      {estimationMode === 'idle' ? (
+        <div>
+          <p className="text-sm text-white/60 mb-3">Estimate how long your current charge will last while the vehicle is parked and idle.</p>
+          {/* FIX 2: Removed the non-existent 'color' prop */}
+          <NeonButton onClick={handleIdleEstimate} className="w-full" disabled={isEstimating}>
+            {/* FIX 1: Using Loader2 here */}
+            {isEstimating ? <Loader2 className="animate-spin" /> : 'Estimate Idle Time'}
+          </NeonButton>
+          {idleEstimate && <p className="mt-4 text-center text-[#FCEE09] font-medium">{idleEstimate}</p>}
+        </div>
+      ) : (
+        <div>
+           <div className="relative mb-3">
+             <Route className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
+             <input
+                type="number"
+                value={travelDistance}
+                onChange={(e) => setTravelDistance(e.target.value)}
+                placeholder="Distance to travel (km)"
+                className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-10 pr-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#16FFBD]"
+             />
+           </div>
+           {/* FIX 2: Removed the non-existent 'color' prop */}
+           <NeonButton onClick={handleTravelEstimate} className="w-full">
+             Estimate Trip Impact
+           </NeonButton>
+           {travelEstimate && <p className="mt-4 text-center text-[#16FFBD] font-medium">{travelEstimate}</p>}
+        </div>
+      )}
     </GlassCard>
   );
 };

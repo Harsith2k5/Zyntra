@@ -274,7 +274,7 @@ max={parseFloat((EV_BATTERY_CAPACITY_KWH * ((100 - batteryRemaining) / 100)).toF
 
 export default UserSpecific; */
 // pages/workstation/UserSpecific.tsx
-import React, { useState, useEffect, useRef } from 'react';
+/* import React, { useState, useEffect, useRef } from 'react';
 import styles from './UserSpecific.module.css';
 import {
   FaUserCircle,
@@ -595,32 +595,18 @@ if (loading) return <div className={styles.loading}>Loading user data...</div>;
   );
 };
 
-export default UserSpecific; 
-/* import React, { useState, useEffect, useRef } from 'react';
-import styles from './UserSpecific.module.css';
-import {
-  FaUserCircle,
-  FaExclamationTriangle,
-  FaLightbulb,
-  FaCar,
-  FaBatteryFull,
-  FaLeaf,
-  FaBolt,
-  FaCoffee,
-  FaWifi,
-  FaRestroom,
-  FaTrophy,
-  FaMapMarkerAlt,
-  FaSpinner,
-  FaPercentage,
-  FaMoneyBillWave,
-  FaTicketAlt
-} from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
-import { getDoc, doc, updateDoc, arrayUnion,writeBatch,increment } from "firebase/firestore";
+export default UserSpecific;  */
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom'; // Import useParams
+import { getDoc, doc, updateDoc, arrayUnion, writeBatch, increment } from "firebase/firestore";
 import { db } from "../../firebase";
-import axios from 'axios';
+import toast, { Toaster } from 'react-hot-toast';
+import {
+    UserCircle, BatteryFull, Leaf, Bolt, Car, Trophy, MapPin, Wifi, Coffee, Wind,
+    Loader, Ticket, Banknote, Power, PowerOff
+} from 'lucide-react';
 
+// --- INTERFACES ---
 interface UserData {
   name?: string;
   evName?: string;
@@ -644,11 +630,10 @@ interface Coupon {
 }
 
 const UserSpecific: React.FC = () => {
-  // State management
+  // --- STATE MANAGEMENT ---
   const [batteryRemaining, setBatteryRemaining] = useState(0);
   const [greenCredits, setGreenCredits] = useState(0);
-  const [chargeAmountKWh, setChargeAmountKWh] = useState(0);
-  const [targetPercentage, setTargetPercentage] = useState(0);
+  const [targetPercentage, setTargetPercentage] = useState(80);
   const [isCharging, setIsCharging] = useState(false);
   const [chargingStatusMessage, setChargingStatusMessage] = useState('');
   const [estimatedTime, setEstimatedTime] = useState(0);
@@ -660,55 +645,42 @@ const UserSpecific: React.FC = () => {
   const [couponCode, setCouponCode] = useState('');
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [finalPrice, setFinalPrice] = useState(0);
-  const [aiAdvice, setAiAdvice] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [personalizedSuggestions, setPersonalizedSuggestions] = useState<string[]>([]);
-  const [batteryStatus, setBatteryStatus] = useState('');
-  const [hasActiveCoupons, setHasActiveCoupons] = useState(false);
-  const [canRedeemCredits, setCanRedeemCredits] = useState(false);
   const chargeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
+  
+  // --- DYNAMIC UID FROM ROUTE ---
+  const { uid } = useParams<{ uid: string }>(); // Get uid from URL, e.g., /user/:uid
 
-  // Constants
+  // --- CONSTANTS ---
   const EV_BATTERY_CAPACITY_KWH = 60;
   const chargingRateKW = 30;
   const costPerKWh = 16.5;
-  const stationAmenities = ['WiFi', 'Coffee Shop', 'Restroom', 'Snack Vending', 'Lounge Area'];
-  const nearestStationName = 'Zyntra Charging Hub - Race Course Rd, Coimbatore';
+  const stationAmenities = ['WiFi', 'Coffee Shop', 'Restroom', 'Lounge Area'];
+  const nearestStationName = 'Zyntra Hub'; // Made more generic
 
-  // Hardcoded UID
-  const uid = "qtgxKvayiNUiroFGySFfxbN5GMG2";
-
-  // Fetch user data on component mount
+  // --- DATA FETCHING ---
   useEffect(() => {
+    // If no UID is found in the URL, don't fetch data
+    if (!uid) {
+      console.error("No User ID provided in the URL.");
+      setLoading(false);
+      return;
+    }
+
     const fetchUserData = async () => {
+      setLoading(true); // Reset loading state for new UID
       try {
         const userProfileRef = doc(db, "userProfiles", uid);
         const profileSnap = await getDoc(userProfileRef);
-
         if (profileSnap.exists()) {
-          const data = profileSnap.data();
-          console.log("Fetched user data:", data);
-          
-          setUserData({
-            name: data.name,
-            evName: data.evName,
-            evModel: data.evModel,
-            batteryRemaining: data.batteryRemaining,
-            greenCredits: data.greenCredits,
-            walletBalance: data.walletBalance,
-            profilePictureUrl: data.profilePictureUrl,
-            emailVerified: data.emailVerified,
-            lastUpdated: data.lastUpdated,
-            role: data.role,
-            transactions: data.transactions,
-            coupons: data.coupons || []
-          });
-          
+          const data = profileSnap.data() as UserData;
+          setUserData(data);
           setBatteryRemaining(data.batteryRemaining || 0);
           setGreenCredits(data.greenCredits || 0);
+          setTargetPercentage(Math.max(data.batteryRemaining || 0, 80));
         } else {
-          console.warn("No user document found in userProfiles collection");
+          console.warn(`No user document found for UID: ${uid}`);
+          setUserData(null); // Clear previous user's data
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -716,98 +688,46 @@ const UserSpecific: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchUserData();
-  }, []);
+  }, [uid]); // Re-run this effect if the uid from the URL changes
 
-  // Get AI charging advice
-  useEffect(() => {
-  const fetchPersonalizedSuggestions = async () => {
-    if (!userData) return;
-    
-    try {
-      const response = await axios.post('http://localhost:5501/personalized_suggestions', {
-        battery_percent: batteryRemaining,
-        wallet_balance: userData.walletBalance || 0,
-        coupons: userData.coupons || [],
-        green_credits: greenCredits,
-        ev_model: userData.evModel || ''
-      });
-      
-      setPersonalizedSuggestions(response.data.suggestions);
-      setBatteryStatus(response.data.battery_status);
-      setHasActiveCoupons(response.data.has_active_coupons);
-      setCanRedeemCredits(response.data.can_redeem_credits);
-    } catch (error) {
-      console.error("Error fetching personalized suggestions:", error);
-    }
-  };
-
-  fetchPersonalizedSuggestions();
-}, [userData, batteryRemaining, greenCredits]);
-  useEffect(() => {
-    const getChargingAdvice = async () => {
-      if (!userData?.evName || !userData?.evModel || batteryRemaining === 0) return;
-      
-      setAiLoading(true);
-      try {
-        const response = await axios.post('http://localhost:5501/ai_recommendation', {
-          user_lat: 11.0168,  // Sample Coimbatore coordinates
-          user_lng: 76.9558,
-          battery_percent: batteryRemaining,
-          ev_name: userData.evName,
-          ev_model: userData.evModel
-        });
-        setAiAdvice(response.data.recommendation);
-      } catch (error) {
-        console.error("Error getting AI advice:", error);
-        setAiAdvice("Unable to load charging advice at this time. Try again later.");
-      } finally {
-        setAiLoading(false);
-      }
-    };
-
-    getChargingAdvice();
-  }, [batteryRemaining, userData?.evName, userData?.evModel]);
-
-  // Charging simulation
+  // --- CHARGING SIMULATION ---
   useEffect(() => {
     if (isCharging) {
       setChargingStatusMessage('Charging in progress...');
       chargeIntervalRef.current = setInterval(() => {
-        setBatteryRemaining(prevBattery => {
+        setBatteryRemaining(prev => {
           const kWhPerInterval = chargingRateKW / 3600;
           const percentagePerInterval = (kWhPerInterval / EV_BATTERY_CAPACITY_KWH) * 100;
-          let newBattery = Math.min(prevBattery + percentagePerInterval, targetPercentage);
-
+          const newBattery = Math.min(prev + percentagePerInterval, targetPercentage);
           if (newBattery >= targetPercentage) {
-            newBattery = targetPercentage;
             setIsCharging(false);
-            setChargingStatusMessage(`Charging complete! Reached ${targetPercentage}%`);
+            setChargingStatusMessage(`Charging complete!`);
             if (chargeIntervalRef.current) clearInterval(chargeIntervalRef.current);
+            return targetPercentage;
           }
-
-          setGreenCredits(prev => prev + (percentagePerInterval / 100) * 0.05 * 100);
+          setGreenCredits(prevCredits => prevCredits + percentagePerInterval * 0.5);
           return newBattery;
         });
       }, 1000);
     }
-
     return () => {
       if (chargeIntervalRef.current) clearInterval(chargeIntervalRef.current);
     };
   }, [isCharging, targetPercentage]);
-
-  // Calculate estimated time and cost
+  
+  // --- ESTIMATION CALCULATION ---
   useEffect(() => {
     if (targetPercentage > batteryRemaining) {
       const percentageToCharge = targetPercentage - batteryRemaining;
       const kWhToCharge = (percentageToCharge / 100) * EV_BATTERY_CAPACITY_KWH;
-      
       const timeInHours = kWhToCharge / chargingRateKW;
+      const cost = kWhToCharge * costPerKWh;
       setEstimatedTime(Math.round(timeInHours * 60));
-      setEstimatedCost(parseFloat((kWhToCharge * costPerKWh).toFixed(2)));
-      setFinalPrice(parseFloat((kWhToCharge * costPerKWh).toFixed(2)));
+      setEstimatedCost(cost);
+      setFinalPrice(cost);
+      setCouponCode('');
+      setCouponDiscount(0);
     } else {
       setEstimatedTime(0);
       setEstimatedCost(0);
@@ -815,470 +735,211 @@ const UserSpecific: React.FC = () => {
     }
   }, [targetPercentage, batteryRemaining]);
 
-  // Helper functions
-  const getBatteryColor = (percentage: number) => {
-    if (percentage > 70) return styles.batteryHigh;
-    if (percentage > 30) return styles.batteryMedium;
-    return styles.batteryLow;
+  // --- HELPER FUNCTIONS ---
+  const getBatteryStyling = (percentage: number) => {
+    if (percentage > 70) return { text: 'text-green-400', bg: 'bg-green-500' };
+    if (percentage > 30) return { text: 'text-amber-400', bg: 'bg-amber-500' };
+    return { text: 'text-red-500', bg: 'bg-red-600' };
   };
-
   const handleTargetPercentageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
-    setTargetPercentage(isNaN(value) ? 0 : Math.min(Math.max(value, batteryRemaining), 100));
+    setTargetPercentage(isNaN(value) ? 0 : value);
   };
-
-  const handleChargeAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    setChargeAmountKWh(isNaN(value) ? 0 : value);
-    // Auto-calculate target percentage based on kWh input
-    const newPercentage = ((value + (batteryRemaining / 100 * EV_BATTERY_CAPACITY_KWH)) / EV_BATTERY_CAPACITY_KWH) * 100;
-    setTargetPercentage(Math.min(newPercentage, 100));
-  };
-
   const startPaymentProcess = () => {
-    if (batteryRemaining >= 100) {
-      setChargingStatusMessage('Battery is already full!');
-      return;
-    }
     if (targetPercentage <= batteryRemaining) {
-      setChargingStatusMessage('Please set a valid target percentage.');
+      toast.error('Please set a higher target percentage.');
       return;
     }
-    
     setPaymentModalOpen(true);
   };
 
   const confirmPayment = async () => {
-    // In a real app, this would process payment
-    // For now, we'll just simulate it
+    if (!uid) return; // Safety check
     setPaymentModalOpen(false);
     setIsCharging(true);
-    setChargingStatusMessage(`Starting charge to ${targetPercentage}%...`);
-    
-    // Calculate the kWh charged
-    const kWhCharged = ((targetPercentage - batteryRemaining) / 100 * EV_BATTERY_CAPACITY_KWH).toFixed(2);
-    const transactionAmount = finalPrice;
-    
+    setChargingStatusMessage(`Initializing charge...`);
+    const kWhCharged = ((targetPercentage - batteryRemaining) / 100 * EV_BATTERY_CAPACITY_KWH);
     try {
       const userProfileRef = doc(db, "userProfiles", uid);
-      const stationRef = doc(db, "stations", "zyntra_user_location");
-      
-      // Batch write to update both documents atomically
       const batch = writeBatch(db);
-      
-      // Add transaction to user profile
       batch.update(userProfileRef, {
         transactions: arrayUnion({
-          date: new Date().toISOString(),
-          amount: transactionAmount,
-          kWh: kWhCharged,
-          station: nearestStationName,
-          couponUsed: couponCode || null,
-          discountApplied: couponDiscount
+          date: new Date().toISOString(), amount: finalPrice, kWh: kWhCharged, station: nearestStationName,
+          couponUsed: couponCode || null, discountApplied: couponDiscount
         }),
         ...(couponCode && {
-          coupons: userData?.coupons?.map(coupon => 
-            coupon.code === couponCode ? {...coupon, used: true} : coupon
-          )
+          coupons: userData?.coupons?.map(c => c.code === couponCode ? {...c, used: true} : c)
         })
       });
-      
-      // Update station revenue
-      batch.update(stationRef, {
-        revenue: arrayUnion({
-          amount: transactionAmount,
-          date: new Date().toISOString(),
-          userId: uid,
-          kWh: kWhCharged
-        }),
-        totalRevenue: increment(transactionAmount) // This creates or increments the totalRevenue field
-      });
-      
       await batch.commit();
-      
     } catch (error) {
-      console.error("Error updating transaction and revenue:", error);
+      console.error("Error updating transaction:", error);
+      toast.error("Failed to save transaction.");
     }
-    
-    // Reset coupon
-    setCouponCode('');
-    setCouponDiscount(0);
-};
+  };
 
   const generateCoupon = async () => {
-    if (greenCredits < 100) {
-      alert('You need at least 100 Green Credits to generate a coupon!');
-      return;
-    }
-    
-    // Generate a random coupon code
+    if (!uid || !userData || greenCredits < 100) { toast.error('You need at least 100 Green Credits!'); return; }
     const code = `ZYNTRA-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    const discount = Math.floor(Math.random() * 15) + 5; // 5-20% discount
-    const validUntil = new Date();
-    validUntil.setDate(validUntil.getDate() + 30); // Valid for 30 days
-    
+    const discount = Math.floor(Math.random() * 10) + 5;
+    const validUntil = new Date(); validUntil.setDate(validUntil.getDate() + 30);
+    const newCoupon = { code, discount, validUntil: validUntil.toISOString(), used: false };
     try {
       const userProfileRef = doc(db, "userProfiles", uid);
       await updateDoc(userProfileRef, {
-        coupons: arrayUnion({
-          code,
-          discount,
-          validUntil: validUntil.toISOString(),
-          used: false
-        }),
-        greenCredits: greenCredits - 100 // Deduct credits
+        coupons: arrayUnion(newCoupon),
+        greenCredits: increment(-100)
       });
-      
-      setUserData(prev => prev ? {
-        ...prev,
-        coupons: [...(prev.coupons || []), {
-          code,
-          discount,
-          validUntil: validUntil.toISOString(),
-          used: false
-        }],
-        greenCredits: greenCredits - 100
-      } : null);
-      
+      setUserData(prev => prev ? { ...prev, coupons: [...(prev.coupons || []), newCoupon], greenCredits: (prev.greenCredits || 0) - 100 } : null);
       setGreenCredits(prev => prev - 100);
       setCouponModalOpen(true);
     } catch (error) {
       console.error("Error generating coupon:", error);
+      toast.error("Could not generate coupon.");
     }
   };
 
   const applyCoupon = () => {
     if (!couponCode) return;
-    
-    const coupon = userData?.coupons?.find(c => 
-      c.code === couponCode && !c.used && new Date(c.validUntil) > new Date()
-    );
-    
+    const coupon = userData?.coupons?.find(c => c.code.toUpperCase() === couponCode.toUpperCase() && !c.used && new Date(c.validUntil) > new Date());
     if (coupon) {
       const discountAmount = (estimatedCost * coupon.discount) / 100;
-      setFinalPrice(parseFloat((estimatedCost - discountAmount).toFixed(2)));
+      setFinalPrice(estimatedCost - discountAmount);
       setCouponDiscount(coupon.discount);
-      alert(`Coupon applied! ${coupon.discount}% discount (₹${discountAmount.toFixed(2)})`);
+      toast.success(`Coupon applied! ${coupon.discount}% discount.`);
     } else {
-      alert('Invalid or expired coupon code');
+      toast.error('Invalid or expired coupon code.');
     }
   };
 
   const stopCharging = () => {
     setIsCharging(false);
     if (chargeIntervalRef.current) clearInterval(chargeIntervalRef.current);
-    setChargingStatusMessage('Charging session manually stopped.');
+    setChargingStatusMessage('Charging manually stopped.');
   };
+  
+  // --- RENDER LOGIC ---
+  if (loading) return <div className="flex items-center justify-center h-screen bg-black text-green-400"><Loader className="animate-spin mr-3" />Loading Dashboard...</div>;
+  if (!uid || !userData) return <div className="flex items-center justify-center h-screen bg-black text-red-500">Could not load user data. Please check the user ID.</div>;
 
-  const formatGreenCredits = (credits: number) => credits.toFixed(2);
-
-  // Loading and error states
-  if (loading) return <div className={styles.loading}>Loading user data...</div>;
-  if (!userData) return <div className={styles.error}>No user data found for UID: {uid}</div>;
+  const batteryStyle = getBatteryStyling(batteryRemaining);
 
   return (
-    <div className={styles.dashboardContainer}>
-    
+    <div className="min-h-screen bg-black text-green-400 font-sans p-4 sm:p-6 lg:p-8">
+      <Toaster 
+        position="top-center"
+        toastOptions={{
+            style: {
+                background: '#111827',
+                color: '#4ade80',
+                border: '1px solid #1f2937',
+            },
+        }}
+      />
       {paymentModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <h3>Confirm Payment</h3>
-            <div className={styles.paymentDetails}>
-              <p>Charging to: {targetPercentage}%</p>
-              <p>Estimated Cost: ₹{estimatedCost.toFixed(2)}</p>
-              
-              {userData.coupons?.some(c => !c.used) && (
-                <div className={styles.couponSection}>
-                  <input
-                    type="text"
-                    placeholder="Enter coupon code"
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value)}
-                    className={styles.couponInput}
-                  />
-                  <button 
-                    onClick={applyCoupon}
-                    className={styles.applyCouponButton}
-                  >
-                    Apply Coupon
-                  </button>
-                </div>
-              )}
-              
-              <p className={styles.finalPrice}>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl p-8 shadow-2xl w-full max-w-md border border-green-800/50">
+            <h3 className="text-2xl font-bold text-green-200 mb-4">Confirm Your Session</h3>
+            <div className="space-y-3 text-green-300">
+              <p className="flex justify-between">Target: <span className="font-semibold text-white">{targetPercentage}%</span></p>
+              <p className="flex justify-between">Est. Cost: <span className="font-semibold text-white">₹{estimatedCost.toFixed(2)}</span></p>
+              <div className="flex space-x-2">
+                <input type="text" placeholder="Enter coupon code" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} className="flex-grow bg-gray-800 border border-gray-700 rounded-md p-2 focus:ring-2 focus:ring-green-500 focus:outline-none text-green-300 placeholder-green-700"/>
+                <button onClick={applyCoupon} className="px-4 py-2 bg-green-700 text-white font-semibold rounded-md hover:bg-green-600 transition">Apply</button>
+              </div>
+              <hr className="border-gray-700 my-4" />
+              <p className={`flex justify-between text-xl font-bold ${couponDiscount > 0 ? 'text-green-400' : 'text-white'}`}>
                 Final Price: <span>₹{finalPrice.toFixed(2)}</span>
-                {couponDiscount > 0 && (
-                  <span className={styles.discountBadge}>{couponDiscount}% OFF</span>
-                )}
+                {couponDiscount > 0 && <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">{couponDiscount}% OFF</span>}
               </p>
             </div>
-            
-            <div className={styles.modalButtons}>
-              <button 
-                onClick={() => setPaymentModalOpen(false)}
-                className={styles.cancelButton}
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={confirmPayment}
-                className={styles.confirmButton}
-              >
-                Confirm Payment
-              </button>
+            <div className="mt-6 flex justify-end space-x-3">
+              <button onClick={() => setPaymentModalOpen(false)} className="px-5 py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-white font-semibold transition">Cancel</button>
+              <button onClick={confirmPayment} className="px-5 py-2 rounded-md bg-green-500 hover:bg-green-400 text-black font-bold transition">Confirm & Pay</button>
             </div>
           </div>
         </div>
       )}
-      
       {couponModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <h3>Coupon Generated!</h3>
-            <div className={styles.couponDisplay}>
-              <FaTicketAlt className={styles.couponIcon} />
-              <p className={styles.couponCode}>
-                {userData.coupons?.[userData.coupons.length - 1]?.code}
-              </p>
-              <p>
-                {userData.coupons?.[userData.coupons.length - 1]?.discount}% discount
-              </p>
-              <p className={styles.validUntil}>
-                Valid until: {new Date(userData.coupons?.[userData.coupons.length - 1]?.validUntil || '').toLocaleDateString()}
-              </p>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl p-8 shadow-2xl w-full max-w-md border border-green-800/50 text-center">
+            <h3 className="text-2xl font-bold text-green-200 mb-2">Coupon Generated!</h3>
+            <p className="text-green-500 mb-4">You've redeemed 100 Green Credits.</p>
+            <div className="bg-black border-2 border-dashed border-green-500 rounded-lg p-6">
+              <Ticket className="mx-auto text-green-400 h-12 w-12" />
+              <p className="text-3xl font-bold tracking-widest text-white my-2">{userData.coupons?.[userData.coupons.length - 1]?.code}</p>
+              <p className="text-lg font-semibold text-green-400">{userData.coupons?.[userData.coupons.length - 1]?.discount}% discount</p>
+              <p className="text-sm text-green-700 mt-2">Valid until: {new Date(userData.coupons?.[userData.coupons.length - 1]?.validUntil || '').toLocaleDateString()}</p>
             </div>
-            <button 
-              onClick={() => setCouponModalOpen(false)}
-              className={styles.closeButton}
-            >
-              Close
-            </button>
+            <button onClick={() => setCouponModalOpen(false)} className="mt-6 w-full px-5 py-2 rounded-md bg-green-500 hover:bg-green-400 text-black font-bold transition">Close</button>
           </div>
         </div>
       )}
-      
-      <h1 className={styles.dashboardTitle}>
-        <FaUserCircle className={styles.icon} /> {userData.name || 'User'}'s Dashboard
-      </h1>
-      
-      <div className={styles.aiAdviceCard}>
-        <h3 className={styles.aiAdviceTitle}>
-          <FaBolt className={styles.icon} /> Smart Charging Advice
-        </h3>
-        {aiLoading ? (
-          <div className={styles.loadingAdvice}>
-            <FaSpinner className={styles.spinner} /> Analyzing your charging needs...
-          </div>
-        ) : (
-          <p className={styles.aiAdviceText}>{aiAdvice || "No advice available at this time."}</p>
-        )}
-      </div>
-      <div className={styles.suggestionsCard}>
-  <h3 className={styles.suggestionsTitle}>
-    <FaLightbulb className={styles.icon} /> Smart Recommendations
-  </h3>
-  
-  {batteryStatus === 'critical' && (
-    <div className={styles.urgentAlert}>
-      <FaExclamationTriangle /> Your battery is critically low! Charge immediately.
-    </div>
-  )}
-  
-  <ul className={styles.suggestionsList}>
-    {personalizedSuggestions.map((suggestion, index) => (
-      <li key={index} className={styles.suggestionItem}>
-        {suggestion.includes("⚡") ? suggestion : `⚡ ${suggestion}`}
-      </li>
-    ))}
-  </ul>
-  
-  <div className={styles.suggestionActions}>
-    {hasActiveCoupons && (
-      <button 
-        className={styles.suggestionAction}
-        onClick={() => setCouponModalOpen(true)}
-      >
-        <FaTicketAlt /> View Coupons
-      </button>
-    )}
-    
-    {canRedeemCredits && (
-      <button 
-        className={styles.suggestionAction}
-        onClick={generateCoupon}
-      >
-        <FaLeaf /> Redeem Credits
-      </button>
-    )}
-  </div>
-</div>
-      <div className={styles.infoGrid}>
 
-        <div className={styles.card}>
-          <h2 className={styles.cardTitle}>
-            <FaCar className={styles.icon} /> My EV
-          </h2>
-          <p className={styles.cardText}>{userData.evName || 'Not specified'}</p>
-          {userData.evModel && <p className={styles.cardText}>Model: {userData.evModel}</p>}
-        </div>
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+        <h1 className="text-3xl font-bold text-green-200 flex items-center mb-4 sm:mb-0">
+          <UserCircle className="mr-3 text-green-400" />
+          {userData.name}'s Dashboard
+        </h1>
+        <button onClick={() => navigate(-1)} className="px-4 py-2 bg-gray-800/50 hover:bg-gray-800 border border-green-900 text-green-300 font-semibold rounded-lg transition">Back to Station</button>
+      </header>
 
-        <div className={`${styles.card} ${getBatteryColor(batteryRemaining)}`}>
-          <h2 className={styles.cardTitle}>
-            <FaBatteryFull className={styles.icon} /> Battery Status
-          </h2>
-          <p className={styles.cardText}>
-            <span className={getBatteryColor(batteryRemaining)}>
-              {batteryRemaining.toFixed(1)}%
-            </span> Remaining
-          </p>
-          <div className={styles.progressBar}>
-            <div
-              className={`${styles.progressBarFill} ${getBatteryColor(batteryRemaining)}Fill`}
-              style={{ width: `${batteryRemaining}%` }}
-            ></div>
-          </div>
-          <p className={styles.chargingStatus}>
-            {isCharging ? (
-              <>
-                <FaSpinner className={styles.spinnerIcon} /> {chargingStatusMessage}
-              </>
-            ) : (
-              chargingStatusMessage || 'Ready to charge.'
-            )}
-          </p>
-        </div>
-
-        <div className={styles.card}>
-          <h2 className={styles.cardTitle}>
-            <FaLeaf className={styles.icon} /> Green Credits
-          </h2>
-          <p className={styles.cardText}>
-            <span className={styles.greenCreditsValue}>{formatGreenCredits(greenCredits)}</span> Credits
-          </p>
-          <p className={styles.subText}>Earn more by charging efficiently and using renewables!</p>
-          <button 
-            className={styles.actionButton} 
-            onClick={generateCoupon}
-disabled={greenCredits < 100}
->
-<FaTrophy className={styles.buttonIcon} /> Redeem Rewards (100 Credits)
-</button>
-</div>
-</div>
-  <div className={styles.chargingControlSection}>
-    <h2 className={styles.sectionTitle}>
-      <FaBolt className={styles.icon} /> Charging Controls
-    </h2>
-    
-    <div className={styles.chargeInputGroup}>
-      <label htmlFor="targetPercentage" className={styles.inputLabel}>
-        Target Battery Level (%):
-      </label>
-      <input
-        type="range"
-        id="targetPercentage"
-        value={targetPercentage}
-        onChange={handleTargetPercentageChange}
-        min={batteryRemaining}
-        max="100"
-        step="1"
-        className={styles.percentageSlider}
-        disabled={isCharging || batteryRemaining >= 100}
-      />
-      <div className={styles.percentageValue}>
-        <FaPercentage className={styles.percentageIcon} />
-        <span>{targetPercentage}%</span>
-      </div>
-    </div>
-
-    <div className={styles.chargeInputGroup}>
-      <label htmlFor="chargeAmount" className={styles.inputLabel}>
-        Or Enter kWh to Add:
-      </label>
-      <input
-        type="number"
-        id="chargeAmount"
-        value={chargeAmountKWh}
-        onChange={handleChargeAmountChange}
-        min="0"
-        max={parseFloat(((EV_BATTERY_CAPACITY_KWH * ((100 - batteryRemaining) / 100)).toFixed(1)))}
-
-        step="0.5"
-        className={styles.chargeInputField}
-        disabled={isCharging || batteryRemaining >= 100}
-      />
-    </div>
-
-    <p className={styles.estimationText}>
-      Estimated Time: {estimatedTime} mins | Estimated Cost: ₹{estimatedCost.toFixed(2)}
-    </p>
-
-    <div className={styles.buttonGroup}>
-      <button
-        className={`${styles.controlButton} ${styles.startButton}`}
-        onClick={startPaymentProcess}
-        disabled={isCharging || targetPercentage <= batteryRemaining || batteryRemaining >= 100}
-      >
-        Start Charging
-      </button>
-      <button
-        className={`${styles.controlButton} ${styles.stopButton}`}
-        onClick={stopCharging}
-        disabled={!isCharging}
-      >
-        Stop Charging
-      </button>
-    </div>
-  </div>
-
-  <div className={styles.amenitiesSection}>
-    <h2 className={styles.sectionTitle}>
-      <FaMapMarkerAlt className={styles.icon} /> At {nearestStationName}
-    </h2>
-    <h3 className={styles.subSectionTitle}>Available Amenities</h3>
-    <div className={styles.amenitiesGrid}>
-      {stationAmenities.map((amenity, index) => (
-        <div key={index} className={styles.amenityItem}>
-          {amenity === 'WiFi' && <FaWifi className={styles.amenityIcon} />}
-          {amenity === 'Coffee Shop' && <FaCoffee className={styles.amenityIcon} />}
-          {amenity === 'Restroom' && <FaRestroom className={styles.amenityIcon} />}
-          <span className={styles.amenityText}>{amenity}</span>
-        </div>
-      ))}
-    </div>
-  </div>
-
-  {userData.coupons?.some(c => !c.used) && (
-    <div className={styles.couponsSection}>
-      <h2 className={styles.sectionTitle}>
-        <FaTicketAlt className={styles.icon} /> Your Active Coupons
-      </h2>
-      <div className={styles.couponsGrid}>
-        {userData.coupons
-          .filter(coupon => !coupon.used && new Date(coupon.validUntil) > new Date())
-          .map((coupon, index) => (
-            <div key={index} className={styles.couponCard}>
-              <div className={styles.couponHeader}>
-                <FaTicketAlt className={styles.couponIcon} />
-                <span className={styles.couponDiscount}>{coupon.discount}% OFF</span>
-              </div>
-              <div className={styles.couponBody}>
-                <p className={styles.couponCode}>{coupon.code}</p>
-                <p className={styles.couponValid}>
-                  Valid until: {new Date(coupon.validUntil).toLocaleDateString()}
-                </p>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-gray-900/50 border border-green-900/70 rounded-2xl p-6 shadow-lg">
+            <h2 className="text-xl font-bold text-green-200 flex items-center mb-4"><Bolt className="mr-3 text-green-400"/>Charging Controls</h2>
+            <div className="space-y-4">
+              <label htmlFor="targetPercentage" className="block text-sm font-medium text-green-500">Target Battery Level: <span className="font-bold text-white">{targetPercentage}%</span></label>
+              <input type="range" id="targetPercentage" value={targetPercentage} onChange={handleTargetPercentageChange} min={Math.ceil(batteryRemaining)} max="100" step="1" className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-green-500 disabled:opacity-50" disabled={isCharging}/>
             </div>
-          ))}
+            <p className="text-sm text-center text-green-600 my-4">Est. Time: <span className="font-semibold text-white">{estimatedTime} mins</span> | Est. Cost: <span className="font-semibold text-white">₹{estimatedCost.toFixed(2)}</span></p>
+            <div className="flex space-x-4">
+              <button onClick={startPaymentProcess} disabled={isCharging || targetPercentage <= batteryRemaining} className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-green-500 text-black font-bold rounded-lg hover:bg-green-400 transition disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"><Power size={20}/>Start Session</button>
+              <button onClick={stopCharging} disabled={!isCharging} className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-red-600/80 text-white font-bold rounded-lg hover:bg-red-600 transition disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"><PowerOff size={20}/>Stop Session</button>
+            </div>
+          </div>
+          
+          <div className="bg-gray-900/50 border border-green-900/70 rounded-2xl p-6 shadow-lg">
+            <h2 className="text-xl font-bold text-green-200 flex items-center mb-4"><MapPin className="mr-3 text-green-400"/>At {nearestStationName}</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+              {stationAmenities.map(amenity => (
+                <div key={amenity} className="bg-gray-800/50 p-3 rounded-lg flex flex-col items-center justify-center">
+                  {amenity === 'WiFi' && <Wifi className="h-6 w-6 mb-2 text-green-400"/>}
+                  {amenity === 'Coffee Shop' && <Coffee className="h-6 w-6 mb-2 text-green-400"/>}
+                  {amenity === 'Restroom' && <Wind className="h-6 w-6 mb-2 text-green-400"/>}
+                  {amenity === 'Lounge Area' && <Banknote className="h-6 w-6 mb-2 text-green-400"/>}
+                  <span className="text-xs font-medium text-green-500">{amenity}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className={`bg-gray-900/50 border border-green-900/70 rounded-2xl p-6 shadow-lg`}>
+            <h2 className="text-xl font-bold text-green-200 flex items-center mb-2"><BatteryFull className="mr-3 text-green-400"/>Battery Status</h2>
+            <div className="text-center my-4">
+              <p className={`text-6xl font-bold ${batteryStyle.text}`}>{batteryRemaining.toFixed(1)}<span className="text-4xl">%</span></p>
+              <p className="text-sm text-green-600">{chargingStatusMessage || 'Ready to Charge'}</p>
+            </div>
+            <div className="w-full bg-gray-800 rounded-full h-4 mb-2 overflow-hidden"><div className={`h-4 rounded-full ${batteryStyle.bg} transition-all duration-500`} style={{ width: `${batteryRemaining}%` }}></div></div>
+          </div>
+          
+          <div className="bg-gray-900/50 border border-green-900/70 rounded-2xl p-6 shadow-lg">
+            <h2 className="text-xl font-bold text-green-200 flex items-center mb-4"><Car className="mr-3 text-green-400"/>My EV</h2>
+            <p className="text-lg font-semibold text-green-300">{userData.evName || 'N/A'}</p>
+            <p className="text-sm text-green-500">{userData.evModel || 'Model not specified'}</p>
+          </div>
+          <div className="bg-gray-900/50 border border-green-900/70 rounded-2xl p-6 shadow-lg">
+            <h2 className="text-xl font-bold text-green-200 flex items-center mb-2"><Leaf className="mr-3 text-green-400"/>Green Credits</h2>
+            <p className="text-3xl font-bold text-white">{greenCredits.toFixed(2)}</p>
+            <p className="text-xs text-green-600 mb-4">Earned from eco-friendly charging.</p>
+            <button onClick={generateCoupon} disabled={greenCredits < 100} className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-green-900/50 text-green-300 font-bold rounded-lg hover:bg-green-800/80 hover:text-white transition disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed"><Trophy size={16}/>Redeem (100)</button>
+          </div>
+        </div>
       </div>
     </div>
-  )}
-
-  <button onClick={() => navigate(-1)} className={styles.backButton}>
-    Back to Station View
-  </button>
-</div>
-);
+  );
 };
 
-export default UserSpecific; */
+export default UserSpecific;

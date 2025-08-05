@@ -2772,7 +2772,7 @@ const MapWithChargingStations: React.FC = () => {
 export default MapWithChargingStations; */
 import React, { useState, useEffect, useCallback } from 'react';
 import { GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
-import { FaCar, FaCarBattery, FaChargingStation,FaCalendarAlt, FaDirections, FaArrowLeft, FaStar, FaPhone, FaRobot, FaTimes, FaBolt } from 'react-icons/fa';
+import { FaCar, FaCarBattery, FaChargingStation, FaCalendarAlt, FaDirections, FaArrowLeft, FaStar, FaPhone, FaRobot, FaTimes,FaBrain,FaBolt, FaExclamationTriangle } from 'react-icons/fa';
 import useLoadGoogleMaps from './config/useLoadGoogleMaps';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
@@ -2814,7 +2814,12 @@ interface UserEVData {
   evModel?: string;
   batteryRemaining: number;
 }
-
+// ADD THIS INTERFACE
+interface RangeAnalysisData {
+  estimatedRangeKm: number;
+  batteryAnalysis: string;
+  rangeConfidence: 'High' | 'Medium' | 'Low';
+}
 // --- STYLES ---
 const containerStyle = { width: '100%', height: '100vh' };
 const darkMapStyles = [ { elementType: "geometry", stylers: [{ color: "#1a1a1a" }] }, { elementType: "labels.icon", stylers: [{ visibility: "off" }] }, { elementType: "labels.text.fill", stylers: [{ color: "#777777" }] }, { elementType: "labels.text.stroke", stylers: [{ color: "#1a1a1a" }] }, { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#555555" }] }, { featureType: "administrative.country", elementType: "labels.text.fill", stylers: [{ color: "#999999" }] }, { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] }, { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#bbbbbb" }] }, { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#777777" }] }, { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#111111" }] }, { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#666666" }] }, { featureType: "poi.park", elementType: "labels.text.stroke", stylers: [{ color: "#1a1a1a" }] }, { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#2c2c2c" }] }, { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#888888" }] }, { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#3a3a3a" }] }, { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#4c4c4c" }] }, { featureType: "road.highway.controlled_access", stylers: [{ color: "#5e5e5e" }] }, { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#666666" }] }, { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#777777" }] }, { featureType: "water", elementType: "geometry", stylers: [{ color: "#000000" }] }, { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#333333" }] }, ];
@@ -2822,6 +2827,7 @@ const darkMapStyles = [ { elementType: "geometry", stylers: [{ color: "#1a1a1a" 
 const MapWithChargingStations: React.FC = () => {
   const navigate = useNavigate();
   const auth = getAuth();
+  // IMPORTANT: Replace the key with your own Google Maps API Key
   const { isLoaded: mapsLoaded, loadError } = useLoadGoogleMaps("AIzaSyAR4pDTfDDN0kCVF5FuiP4m69bankC_vCE");
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -2834,8 +2840,12 @@ const MapWithChargingStations: React.FC = () => {
   
   const [userEVData, setUserEVData] = useState<UserEVData | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<string | null>(null);
-  const [showAiPopup, setShowAiPopup] = useState(false);
   const [aiLoading, setAiLoading] = useState(true);
+
+  // State for the new mocked range-based AI suggestion
+// ADD THESE LINES
+const [rangeAnalysis, setRangeAnalysis] = useState<RangeAnalysisData | null>(null);
+const [isAnalysisLoading, setIsAnalysisLoading] = useState<boolean>(true);
 
   const defaultHyderabadLocation = { lat: 17.3850, lng: 78.4867 };
   const glowingCyan = 'rgba(0, 255, 255, 0.7)';
@@ -2896,31 +2906,42 @@ const MapWithChargingStations: React.FC = () => {
     return () => unsubscribe();
   }, [auth]);
 
-  useEffect(() => {
-    if (userEVData && userEVData.batteryRemaining < 95) {
-      const getRecommendation = async () => {
-        setAiLoading(true);
-        try {
-          const response = await fetch('http://localhost:5501/api/ai_charging_recommendation', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userEVData),
-          });
-          if (!response.ok) throw new Error(`AI API error: ${response.statusText}`);
-          const data = await response.json();
-          setAiRecommendation(data.recommendation);
-          setShowAiPopup(true);
-        } catch (error) {
-          console.error("Failed to get AI recommendation:", error);
-        } finally {
-          setAiLoading(false);
-        }
-      };
-      getRecommendation();
-    } else if (userEVData) {
-      setAiLoading(false);
+useEffect(() => {
+  const fetchRangeAnalysis = async () => {
+    if (!userEVData) return;
+
+    setIsAnalysisLoading(true);
+    try {
+      const response = await fetch('http://localhost:5501/api/estimate/range_and_battery_analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          evModel: userEVData.evModel,
+          evName: userEVData.evName, // Sending evName as well
+          batteryRemaining: userEVData.batteryRemaining,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Network response was not ok');
+
+      const data: RangeAnalysisData = await response.json();
+      setRangeAnalysis(data);
+
+    } catch (error) {
+      console.error("Failed to fetch range analysis:", error);
+      // Create a fallback state in case the API fails
+      setRangeAnalysis({
+        estimatedRangeKm: userEVData.batteryRemaining * 4.0, // A simple fallback calculation
+        batteryAnalysis: "Could not connect to AI advisor. Showing a basic range estimate.",
+        rangeConfidence: "Low"
+      });
+    } finally {
+      setIsAnalysisLoading(false);
     }
-  }, [userEVData]);
+  };
+
+  fetchRangeAnalysis();
+}, [userEVData]);
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -3010,7 +3031,7 @@ const MapWithChargingStations: React.FC = () => {
         state: {
           stationName: station.name,
           stationAddress: station.formatted_address || 
-                        (station.place_id === 'zyntra_user_location' ? 'Your Current Location' : ''),
+                          (station.place_id === 'zyntra_user_location' ? 'Your Current Location' : ''),
           isZyntraStation: station.place_id === 'zyntra_user_location',
           userLocation: station.place_id === 'zyntra_user_location' ? userLocation : null
         }
@@ -3026,7 +3047,6 @@ const MapWithChargingStations: React.FC = () => {
     }
   };
 
-  // --- Helper to get battery color ---
   const getBatteryColor = (level: number) => {
     if (level < 20) return '#FF4500'; // Red
     if (level < 50) return '#FFD700'; // Yellow
@@ -3041,8 +3061,6 @@ const MapWithChargingStations: React.FC = () => {
     return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: primaryBg, color: textColor }}><p>Loading EV Map Interface...</p></div>;
   }
 
-  // --- FIX ---
-  // Define Marker Icons here, AFTER `mapsLoaded` is confirmed to be true.
   const userMarkerIcon = {
     path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
     fillColor: '#00BFFF',
@@ -3086,7 +3104,7 @@ const MapWithChargingStations: React.FC = () => {
           {directions && (<DirectionsRenderer directions={directions} options={{ polylineOptions: { strokeColor: '#00FFFF', strokeOpacity: 0.8, strokeWeight: 7, } }} />)}
         </GoogleMap>
         
-        {/* MODIFIED: AI Recommendation Popup (Top-Left) */}
+        {/* --- NEW LAYOUT CONTAINER --- */}
         <div style={{
             position: 'absolute',
             top: '20px',
@@ -3105,30 +3123,7 @@ const MapWithChargingStations: React.FC = () => {
                 }
             `}</style>
 
-            {showAiPopup && (
-                <div style={{
-                    width: '100%',
-                    backgroundColor: 'rgba(25, 25, 25, 0.9)',
-                    border: `1px solid ${glowingCyan}`,
-                    borderRadius: '12px',
-                    padding: '20px',
-                    boxSizing: 'border-box',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: `0 0 25px rgba(0, 255, 255, 0.3)`,
-                    animation: 'fadeInSlideDown 0.5s ease-out'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                        <h3 style={{ margin: 0, color: glowingCyan, display: 'flex', alignItems: 'center', textShadow: '0 0 10px rgba(0, 255, 255, 0.7)' }}>
-                            <FaRobot style={{ marginRight: '10px' }} /> Zyntra AI Recommendation
-                        </h3>
-                        <button onClick={() => setShowAiPopup(false)} style={{ background: 'none', border: 'none', color: mutedTextColor, cursor: 'pointer', fontSize: '1.2em' }}><FaTimes /></button>
-                    </div>
-                    <div style={{ color: textColor, fontSize: '1em', lineHeight: '1.6' }}>
-                        {aiLoading ? <p>Analyzing your vehicle data...</p> : <p>{aiRecommendation}</p>}
-                    </div>
-                </div>
-            )}
-
+            {/* CARD 1: Current Battery Status */}
             {userEVData && (
                 <div style={{
                     width: '100%',
@@ -3139,8 +3134,7 @@ const MapWithChargingStations: React.FC = () => {
                     boxSizing: 'border-box',
                     backdropFilter: 'blur(5px)',
                     boxShadow: `0 0 20px rgba(22, 255, 189, 0.3)`,
-                    animation: 'fadeInSlideDown 0.5s ease-out 0.1s',
-                    animationFillMode: 'backwards',
+                    animation: 'fadeInSlideDown 0.5s ease-out'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         <FaCarBattery style={{ fontSize: '3em', color: getBatteryColor(userEVData.batteryRemaining), marginRight: '20px', flexShrink: 0, filter: `drop-shadow(0 0 8px ${getBatteryColor(userEVData.batteryRemaining)})` }} />
@@ -3166,39 +3160,89 @@ const MapWithChargingStations: React.FC = () => {
                     </div>
                 </div>
             )}
+            
+            {/* CARD 2: Recommended Stations List */}
+            {showTopStations && topStations.length > 0 && (
+              <div style={{
+                  width: '100%',
+                  backgroundColor: 'rgba(11, 11, 11, 0.9)',
+                  border: `1px solid ${accentColor}`,
+                  borderRadius: '12px',
+                  padding: '15px',
+                  boxSizing: 'border-box',
+                  backdropFilter: 'blur(5px)',
+                  boxShadow: `0 0 20px rgba(22, 255, 189, 0.3)`,
+                  animation: 'fadeInSlideDown 0.5s ease-out 0.1s',
+                  animationFillMode: 'backwards',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h3 style={{ margin: 0, color: accentColor, display: 'flex', alignItems: 'center' }}><FaBolt style={{ marginRight: '10px' }} /> Nearby Recommendations</h3>
+                  <button onClick={() => setShowTopStations(false)} style={{ background: 'none', border: 'none', color: mutedTextColor, cursor: 'pointer', fontSize: '1.2em' }}><FaTimes /></button>
+                </div>
+                <div style={{ marginTop: '10px' }}>
+                  {topStations.map((station, index) => (
+                    <div key={station.place_id} style={{ padding: '12px', marginBottom: '10px', backgroundColor: secondaryBg, borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease', borderLeft: `4px solid ${index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32'}`, }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 5px 15px rgba(0,0,0,0.2)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }} onClick={() => showStationDetails(station)}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <div>
+                          <h4 style={{ margin: '0 0 5px 0', color: textColor, display: 'flex', alignItems: 'center' }}>
+                            {index === 0 && <FaStar style={{ color: '#FFD700', marginRight: '8px' }} />}
+                            {index === 1 && <FaStar style={{ color: '#C0C0C0', marginRight: '8px' }} />}
+                            {index === 2 && <FaStar style={{ color: '#CD7F32', marginRight: '8px' }} />}
+                            {station.name}
+                          </h4>
+                          <p style={{ margin: '0 0 5px 0', color: mutedTextColor, fontSize: '0.9em' }}>{station.formatted_address?.split(',').slice(0, 2).join(',')}</p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ margin: 0, color: accentColor, fontWeight: 'bold' }}>{userLocation && calculateDistance(userLocation.lat, userLocation.lng, station.geometry.location.lat(), station.geometry.location.lng()).toFixed(1)} km</p>
+                          {station.rating && (<p style={{ margin: '5px 0 0 0', color: '#FFD700', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><FaStar style={{ marginRight: '5px' }} />{station.rating}</p>)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* CARD 3: NEW AI Range Advisor */}
+            {userEVData && (
+  <div style={{
+      width: '100%',
+      backgroundColor: 'rgba(25, 25, 25, 0.9)',
+      border: `1px solid #FFD700`,
+      borderRadius: '12px',
+      padding: '20px',
+      boxSizing: 'border-box',
+      backdropFilter: 'blur(8px)',
+      boxShadow: `0 0 25px rgba(255, 215, 0, 0.3)`,
+      animation: 'fadeInSlideDown 0.5s ease-out 0.2s',
+      animationFillMode: 'backwards',
+  }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+          <FaBrain style={{ marginRight: '10px', color: '#FFD700', fontSize: '1.2em' }} />
+          <h3 style={{ margin: 0, color: '#FFD700', textShadow: '0 0 10px rgba(255, 215, 0, 0.7)' }}>
+              Zyntra AI Analysis
+          </h3>
+      </div>
+
+      {isAnalysisLoading ? (
+        <p style={{margin: 0, color: mutedTextColor}}>Analyzing your vehicle's range...</p>
+      ) : rangeAnalysis && (
+        <div>
+          <div style={{display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '10px'}}>
+            <p style={{margin: 0, fontSize: '2.5em', color: textColor, fontWeight: 'bold'}}>{rangeAnalysis.estimatedRangeKm.toFixed(0)}</p>
+            <p style={{margin: 0, fontSize: '1.2em', color: accentColor, fontWeight: 'bold'}}>km</p>
+            <p style={{margin: 0, color: mutedTextColor, fontSize: '0.9em'}}>(Estimated Range)</p>
+          </div>
+          <p style={{margin: 0, color: textColor, fontSize: '1em', lineHeight: '1.6'}}>
+            {rangeAnalysis.batteryAnalysis}
+          </p>
+        </div>
+      )}
+  </div>
+)}
         </div>
 
-        {showTopStations && topStations.length > 0 && (
-          <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(11, 11, 11, 0.9)', border: `1px solid ${accentColor}`, borderRadius: '12px', padding: '15px', width: '90%', maxWidth: '500px', zIndex: 10, backdropFilter: 'blur(5px)', boxShadow: `0 0 20px rgba(22, 255, 189, 0.3)`, animation: 'slideUp 0.5s ease-out' }}>
-            <style>{`@keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(50px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <h3 style={{ margin: 0, color: accentColor, display: 'flex', alignItems: 'center' }}><FaBolt style={{ marginRight: '10px' }} /> Recommended Stations</h3>
-              <button onClick={() => setShowTopStations(false)} style={{ background: 'none', border: 'none', color: mutedTextColor, cursor: 'pointer', fontSize: '1.2em' }}><FaTimes /></button>
-            </div>
-            <div style={{ marginTop: '10px' }}>
-              {topStations.map((station, index) => (
-                <div key={station.place_id} style={{ padding: '12px', marginBottom: '10px', backgroundColor: secondaryBg, borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease', borderLeft: `4px solid ${index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32'}`, }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 5px 15px rgba(0,0,0,0.2)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }} onClick={() => showStationDetails(station)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div>
-                      <h4 style={{ margin: '0 0 5px 0', color: textColor, display: 'flex', alignItems: 'center' }}>
-                        {index === 0 && <FaStar style={{ color: '#FFD700', marginRight: '8px' }} />}
-                        {index === 1 && <FaStar style={{ color: '#C0C0C0', marginRight: '8px' }} />}
-                        {index === 2 && <FaStar style={{ color: '#CD7F32', marginRight: '8px' }} />}
-                        {station.name}
-                      </h4>
-                      <p style={{ margin: '0 0 5px 0', color: mutedTextColor, fontSize: '0.9em' }}>{station.formatted_address?.split(',').slice(0, 2).join(',')}</p>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{ margin: 0, color: accentColor, fontWeight: 'bold' }}>{userLocation && calculateDistance(userLocation.lat, userLocation.lng, station.geometry.location.lat(), station.geometry.location.lng()).toFixed(1)} km</p>
-                      {station.rating && (<p style={{ margin: '5px 0 0 0', color: '#FFD700', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}><FaStar style={{ marginRight: '5px' }} />{station.rating}</p>)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
+        {/* Zyntra Mobile Charger card in top-right (Unchanged) */}
         {userLocation && (
           <div style={{ position: 'absolute', top: '20px', right: '20px', left: 'auto', background: 'linear-gradient(135deg, rgba(70, 0, 90, 0.9) 0%, rgba(120, 0, 150, 0.9) 100%)', border: `1px solid #FF00FF`, borderRadius: '15px', padding: '20px', boxShadow: `0 0 30px rgba(255, 0, 255, 0.6), inset 0 0 15px rgba(255, 105, 255, 0.4)`, zIndex: 10, maxWidth: '280px', color: '#FFFFFF', fontFamily: 'Roboto, sans-serif', animation: 'fadeInSlideRight 0.7s ease-out forwards', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', borderTop: `3px solid #FF66FF`, }}>
             <style>{`@keyframes fadeInSlideRight { from { opacity: 0; transform: translateX(50px) translateY(-20px); } to { opacity: 1; transform: translateX(0) translateY(0); } }`}</style>
@@ -3210,6 +3254,7 @@ const MapWithChargingStations: React.FC = () => {
         )}
       </div>
 
+      {/* Right Sidebar for Station Details (Unchanged) */}
       <div style={{ width: '30%', height: '100vh', padding: '30px', boxSizing: 'border-box', backgroundColor: primaryBg, color: textColor, overflowY: 'auto', borderLeft: `1px solid ${glowingGreen}`, boxShadow: `inset 5px 0 15px rgba(0,0,0,0.5), 0 0 20px ${glowingGreen}33`, }}>
         <h2 style={{ marginTop: 0, color: accentColor, borderBottom: `1px solid ${glowingGreen}`, paddingBottom: '20px', marginBottom: '30px', display: 'flex', alignItems: 'center', textShadow: `0 0 15px ${accentColor}dd`, fontSize: '1.8em', fontWeight: 'bold', }}><FaChargingStation style={{ marginRight: '15px', fontSize: '1.5em', color: glowingGreen }} /> EV Charging Network</h2>
         {selectedStation ? (<>
@@ -3220,12 +3265,12 @@ const MapWithChargingStations: React.FC = () => {
             <p style={{ color: textColor, display: 'flex', alignItems: 'center', marginBottom: '8px', fontSize: '1.1em' }}><FaStar style={{ color: '#FFD700', marginRight: '10px', textShadow: '0 0 5px #FFD700' }} />Rating: {selectedStation.rating ? `${selectedStation.rating} / 5` : "N/A"}{selectedStation.user_ratings_total && ` (${selectedStation.user_ratings_total} reviews)`}</p>
             {selectedStation.formatted_phone_number && (<p style={{ color: textColor, display: 'flex', alignItems: 'center', marginBottom: '8px', fontSize: '1.1em' }}><FaPhone style={{ marginRight: '10px', color: glowingGreen }} />Phone: {selectedStation.formatted_phone_number}</p>)}
             
-            {/* FIX: Corrected Google Maps URL for Navigation */}
+            {/* CORRECTED Google Maps URL for Navigation */}
             <a href={`https://www.google.com/maps/dir/?api=1&origin=${userLocation?.lat},${userLocation?.lng}&destination=${selectedStation.geometry.location.lat()},${selectedStation.geometry.location.lng()}`} target="_blank" rel="noopener noreferrer" style={{ color: glowingCyan, textDecoration: 'none', display: 'flex', alignItems: 'center', marginBottom: '15px', fontWeight: 'bold', fontSize: '1.1em', transition: 'color 0.3s ease', textShadow: `0 0 10px ${glowingCyan}66`, }} onMouseOver={(e) => { e.currentTarget.style.color = '#87CEEB'; e.currentTarget.style.textShadow = `0 0 15px ${glowingCyan}`; }} onMouseOut={(e) => { e.currentTarget.style.color = glowingCyan; e.currentTarget.style.textShadow = `0 0 10px ${glowingCyan}66`; }}>
               <FaDirections style={{ marginRight: '10px' }} />
               Start Navigation
             </a>
-            {/* FIX: Corrected Google Maps URL for viewing place details */}
+            {/* CORRECTED Google Maps URL for viewing place details */}
             <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedStation.name)}&query_place_id=${selectedStation.place_id}`} target="_blank" rel="noopener noreferrer" style={{ color: glowingCyan, textDecoration: 'none', display: 'flex', alignItems: 'center', fontWeight: 'bold', fontSize: '1.1em', transition: 'color 0.3s ease', textShadow: `0 0 10px ${glowingCyan}66`, }} onMouseOver={(e) => { e.currentTarget.style.color = '#87CEEB'; e.currentTarget.style.textShadow = `0 0 15px ${glowingCyan}`; }} onMouseOut={(e) => { e.currentTarget.style.color = glowingCyan; e.currentTarget.style.textShadow = `0 0 10px ${glowingCyan}66`; }}>
               View on Google Maps
             </a>

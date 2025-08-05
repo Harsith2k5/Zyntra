@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { onSnapshot } from 'firebase/firestore';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import RazorpayButton from '.././pages/Payment';
+import { useNavigate } from 'react-router-dom';
 import { 
   CreditCard, 
   Plus, 
@@ -59,7 +60,7 @@ const Wallet: React.FC<WalletProps> = ({ userData }) => {
   const [selectedBank, setSelectedBank] = useState('HDFC Bank');
   const controls = useAnimation();
   const [walletData, setWalletData] = useState(userData);
-
+  const navigate = useNavigate();
 // Add this useEffect to listen for real-time updates
 useEffect(() => {
   if (!currentUser) return;
@@ -315,9 +316,14 @@ const handleRecharge = async () => {
                   <Zap className="w-4 h-4 text-[#FCEE09]" />
                   <span className="text-[#FCEE09] text-sm">127 kg CO₂ saved</span>
                 </div>
-                <NeonButton variant="outline" size="sm" glowColor="amber">
-                  Redeem
-                </NeonButton>
+<NeonButton 
+  variant="outline" 
+  size="sm" 
+  glowColor="amber"
+  onClick={() => navigate('/rewards')}
+>
+  Redeem
+</NeonButton>
               </div>
             </GlassCard>
           </motion.div>

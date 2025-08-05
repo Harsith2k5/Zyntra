@@ -1785,6 +1785,58 @@ const loadingMessages = [
   "Almost there! Just a few more seconds to plan your perfect EV trip."
 ];
 
+
+const CountdownPopup = ({ countdownValue, estimatedTime, onClose }: { 
+  countdownValue: number, 
+  estimatedTime: number,
+  onClose: () => void 
+}) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      className="fixed inset-0 flex items-center justify-center z-50 bg-black/70 backdrop-blur-sm"
+    >
+      <GlassCard className="p-8 max-w-md w-full" glowColor="yellow">
+        <div className="text-center">
+          <div className="flex justify-center mb-6">
+            <Zap className="w-12 h-12 text-yellow-400 animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Calculating Your Route</h2>
+          <p className="text-white/80 mb-6">
+            Finding optimal charging stations for your journey...
+          </p>
+          
+          <div className="relative h-4 bg-white/10 rounded-full overflow-hidden mb-6">
+            <motion.div
+              initial={{ width: "100%" }}
+              animate={{ width: "0%" }}
+              transition={{ duration: estimatedTime, ease: "linear" }}
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-yellow-400 to-amber-500"
+            />
+          </div>
+          
+          <div className="text-4xl font-bold text-yellow-400 mb-6">
+            {countdownValue}s
+          </div>
+          
+          <p className="text-sm text-white/60 mb-6">
+            Analyzing the charging stations...
+          </p>
+          
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-yellow-400/20 text-yellow-400 rounded-lg hover:bg-yellow-400/30 transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+      </GlassCard>
+    </motion.div>
+  );
+};
+
 const EVStationFinder = () => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [origin, setOrigin] = useState<Coordinates | null>(null);
@@ -1813,20 +1865,23 @@ const EVStationFinder = () => {
   const destinationAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const originInputRef = useRef<HTMLInputElement>(null);
   const destinationInputRef = useRef<HTMLInputElement>(null);
+  const [showCountdown, setShowCountdown] = useState(false);
+const [countdownValue, setCountdownValue] = useState(0);
+const [estimatedTime, setEstimatedTime] = useState(0);
 
   // Load Google Maps script
   useEffect(() => {
-    if (!window.google) {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyD1xsbZ9KAwL1C_raDI_Yb1WYAi1iilTWw&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => setScriptLoaded(true);
-      document.head.appendChild(script);
-    } else {
-      setScriptLoaded(true);
-    }
-  }, []);
+  if (!window.google) {
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyD1xsbZ9KAwL1C_raDI_Yb1WYAi1iilTWw&libraries=places,geometry`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setScriptLoaded(true);
+    document.head.appendChild(script);
+  } else {
+    setScriptLoaded(true);
+  }
+}, []);
 
   // Initialize autocomplete
   useEffect(() => {
@@ -1952,70 +2007,95 @@ const EVStationFinder = () => {
     if (destinationInputRef.current) destinationInputRef.current.value = '';
   }, []);
 
-  const findStations = useCallback(async () => {
-    if (!origin || !destination) {
-      setError('Please select both origin and destination');
-      return;
+const findStations = useCallback(async () => {
+  if (!origin || !destination) {
+    setError('Please select both origin and destination');
+    return;
+  }
+
+  // Calculate distance between origin and destination for estimation
+  const distance = window.google.maps.geometry.spherical.computeDistanceBetween(
+    new window.google.maps.LatLng(origin.lat, origin.lng),
+    new window.google.maps.LatLng(destination.lat, destination.lng)
+  ) / 1000; // Convert to km
+
+  // Set estimated time (5-15 seconds based on distance)
+  const timeEstimate = Math.min(120, Math.max(120, Math.floor(distance / 50)));
+  setEstimatedTime(timeEstimate);
+  setCountdownValue(timeEstimate);
+  setShowCountdown(true);
+
+  // Start countdown
+  const countdownInterval = setInterval(() => {
+    setCountdownValue(prev => {
+      if (prev <= 1) {
+        clearInterval(countdownInterval);
+        return 0;
+      }
+      return prev - 1;
+    });
+  }, 1000);
+
+  setLoading(true);
+  setError('');
+  setStations([]);
+  setRecommendedStations([]);
+  setRoutePolyline([]);
+  setWaypoints([]);
+  setCurrentLoadingMessageIndex(0);
+
+  try {
+    const response = await fetch('http://localhost:5501/find_ev_stations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        origin: `${origin.lat},${origin.lng}`,
+        destination: `${destination.lat},${destination.lng}`,
+        current_range_km: currentRange,
+        max_range_km: maxRange,
+        use_ocm: useOCM
+      }),
+    });
+
+    const data: RouteResponse = await response.json();
+
+    if (!response.ok || data.status === 'error') {
+      throw new Error(data.error || `Server returned ${response.status}`);
     }
 
-    setLoading(true);
-    setError('');
-    setStations([]);
-    setRecommendedStations([]);
-    setRoutePolyline([]);
-    setWaypoints([]);
-    setCurrentLoadingMessageIndex(0);
+    // Filter out stations with invalid locations
+    const validStations = (data.stations || []).filter(
+      station => station.geometry?.location?.lat && station.geometry?.location?.lng
+    );
+    
+    const validRecommended = (data.recommended_stations || []).filter(
+      station => station.geometry?.location?.lat && station.geometry?.location?.lng
+    );
 
-    try {
-      const response = await fetch('http://localhost:5501/find_ev_stations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          origin: `${origin.lat},${origin.lng}`,
-          destination: `${destination.lat},${destination.lng}`,
-          current_range_km: currentRange,
-          max_range_km: maxRange,
-          use_ocm: useOCM
-        }),
-      });
+    setStations(validStations);
+    setRecommendedStations(validRecommended);
+    setRoutePolyline(data.polyline || []);
+    setStopsRequired(data.stops_required || 0);
+    setTotalDistance(data.total_route_distance_km || 0);
+    setWaypoints(Array.isArray(data.waypoints) ? data.waypoints : []);
 
-      const data: RouteResponse = await response.json();
-
-      if (!response.ok || data.status === 'error') {
-        throw new Error(data.error || `Server returned ${response.status}`);
-      }
-
-      // Filter out stations with invalid locations
-      const validStations = (data.stations || []).filter(
-        station => station.geometry?.location?.lat && station.geometry?.location?.lng
-      );
-      
-      const validRecommended = (data.recommended_stations || []).filter(
-        station => station.geometry?.location?.lat && station.geometry?.location?.lng
-      );
-
-      setStations(validStations);
-      setRecommendedStations(validRecommended);
-      setRoutePolyline(data.polyline || []);
-      setStopsRequired(data.stops_required || 0);
-      setTotalDistance(data.total_route_distance_km || 0);
-      setWaypoints(Array.isArray(data.waypoints) ? data.waypoints : []);
-
-      if (data.polyline && data.polyline.length > 0 && map) {
-        const bounds = new window.google.maps.LatLngBounds();
-        data.polyline.forEach(point => bounds.extend({ lat: point[0], lng: point[1] }));
-        map.fitBounds(bounds);
-      }
-
-    } catch (err) {
-      console.error('Error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred while fetching charging stations.');
-    } finally {
-      setLoading(false);
+    if (data.polyline && data.polyline.length > 0 && map) {
+      const bounds = new window.google.maps.LatLngBounds();
+      data.polyline.forEach(point => bounds.extend({ lat: point[0], lng: point[1] }));
+      map.fitBounds(bounds);
     }
-  }, [origin, destination, currentRange, maxRange, map, useOCM]);
+
+  } catch (err) {
+    console.error('Error:', err);
+    setError(err instanceof Error ? err.message : 'An error occurred while fetching charging stations.');
+  } finally {
+    setLoading(false);
+    setShowCountdown(false);
+    clearInterval(countdownInterval);
+  }
+}, [origin, destination, currentRange, maxRange, map, useOCM]);
 
   if (!scriptLoaded) {
     return <div className="min-h-screen bg-[#0B0B0B] text-white flex items-center justify-center text-xl">Loading Google Maps...</div>;
@@ -2323,35 +2403,33 @@ const EVStationFinder = () => {
 
           {/* All Stations */}
           {stations?.length > 0 && stations.map((station) => (
-            <Marker
-              key={`station-${station.place_id}`}
-              position={{
-                lat: station.geometry.location.lat,
-                lng: station.geometry.location.lng
-              }}
-              icon={{
-                url: station.isOCM 
-                  ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
-                  : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-                scaledSize: new window.google.maps.Size(30, 30)
-              }}
-            />
-          ))}
+  <Marker
+    key={`station-${station.place_id}`}
+    position={{
+      lat: station.geometry.location.lat,
+      lng: station.geometry.location.lng
+    }}
+    icon={{
+      url: "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png",
+      scaledSize: new window.google.maps.Size(30, 30)
+    }}
+  />
+))}
 
           {/* Recommended Stations */}
           {recommendedStations?.length > 0 && recommendedStations.map((station) => (
-            <Marker
-              key={`recommended-${station.place_id}`}
-              position={{
-                lat: station.geometry.location.lat,
-                lng: station.geometry.location.lng
-              }}
-              icon={{
-                url: "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png",
-                scaledSize: new window.google.maps.Size(40, 40)
-              }}
-            />
-          ))}
+  <Marker
+    key={`recommended-${station.place_id}`}
+    position={{
+      lat: station.geometry.location.lat,
+      lng: station.geometry.location.lng
+    }}
+    icon={{
+      url: "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png",
+      scaledSize: new window.google.maps.Size(40, 40) // Keep this slightly larger if you want to differentiate recommended stations
+    }}
+  />
+))}
         </GoogleMap>
 
         {(stations.length > 0 || recommendedStations.length > 0 || totalDistance > 0) && !loading && (
@@ -2467,6 +2545,13 @@ const EVStationFinder = () => {
           </motion.div>
         )}
       </div>
+      {showCountdown && (
+  <CountdownPopup 
+    countdownValue={countdownValue} 
+    estimatedTime={estimatedTime}
+    onClose={() => setShowCountdown(false)} 
+  />
+)}
     </div>
   );
 };

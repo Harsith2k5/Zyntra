@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   BarChart2, 
   Activity, 
   Clock, 
-  Loader, 
   Settings,
-  LogOut
+  LogOut,
+  UsersRound, // More appropriate icon
+  MonitorSmartphone // More appropriate icon
 } from 'lucide-react';
 
 const AdminSidebar: React.FC = () => {
@@ -17,9 +18,47 @@ const AdminSidebar: React.FC = () => {
     { path: '/admin/overview', icon: BarChart2, label: 'Overview' },
     { path: '/admin/usage', icon: Activity, label: 'Usage Trends' },
     { path: '/admin/forecast', icon: Clock, label: 'Forecast' },
-    { path: '/admin/stations', icon: Loader, label: 'Station Management' },
-    { path: '/admin/settings', icon: Settings, label: 'Settings' }
+    { path: '/admin/stations', icon: UsersRound, label: 'Station Management' }, // Changed Icon
+    { path: '/admin/settings', icon: Settings, label: 'Settings' },
+    { path: '/virtual-queue', icon: UsersRound, label: 'Virtual Queue' }, // Changed Icon
+    { path: '/workstation/dummy', icon: MonitorSmartphone, label: 'Zyntra Queue' } // Changed Icon
   ];
+
+  // This effect handles the automatic fullscreen logic
+  useEffect(() => {
+    const enterFullscreen = async () => {
+      // Check if we are already in fullscreen to avoid errors
+      if (document.fullscreenElement) return;
+      try {
+        await document.documentElement.requestFullscreen();
+      } catch (err) {
+        console.error(`Could not enter fullscreen mode: ${err}`);
+      }
+    };
+
+    const exitFullscreen = async () => {
+      // Check if we are in fullscreen before trying to exit
+      if (!document.fullscreenElement) return;
+      try {
+        await document.exitFullscreen();
+      } catch (err) {
+        console.error(`Could not exit fullscreen mode: ${err}`);
+      }
+    };
+
+    // Trigger fullscreen based on the current path
+    if (location.pathname === '/workstation/dummy') {
+      enterFullscreen();
+    } else {
+      exitFullscreen();
+    }
+
+    // When the component unmounts, ensure we exit fullscreen
+    // This handles cases like logging out directly from the fullscreen page
+    return () => {
+      exitFullscreen();
+    };
+  }, [location.pathname]); // Re-run the effect whenever the path changes
 
   return (
     <div className="fixed left-0 top-0 h-full w-64 bg-[#151515] border-r border-white/10 z-40 hidden lg:block">

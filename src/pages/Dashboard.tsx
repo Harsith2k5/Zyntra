@@ -247,6 +247,8 @@ import GlassCard from '../components/ui/GlassCard';
 import NeonButton from '../components/ui/NeonButton';
 import { mockStations } from '../data/mockData'; // Keep mockStations for AI pick and other station data
 import BatteryEstimator from './BatteryEstimator';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 // --- Define the shape of data expected from Firestore (copy from App.tsx or create a shared types file) ---
 interface UserProfileData {
   id?: string; // Firestore document ID, optional as it's often implicit
@@ -268,7 +270,7 @@ interface UserProfileData {
 
 // Define the interface for Dashboard component's props
 interface DashboardProps {
-  userData: UserProfileData;
+userData: UserProfileData & { id: string };
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ userData }) => {
@@ -289,7 +291,27 @@ const Dashboard: React.FC<DashboardProps> = ({ userData }) => {
   // Calculate estimated range (e.g., 5km per percent for a 500km range EV)
   // This is a simple example; you might have a more complex calculation or store it directly
   const estimatedRange = (currentBattery / 100) * (userData.vehicleRange || 400); // Assuming a default 400km max range if not specified
+const handleBatteryUpdate = async (newBatteryLevel: number) => {
+    if (!userData.id) {
+      console.error("User ID is missing. Cannot update battery level.");
+      alert("Error: User session is invalid. Please log in again.");
+      return;
+    }
 
+    const userDocRef = doc(db, 'userProfiles', userData.id);
+
+    try {
+      await updateDoc(userDocRef, {
+        batteryRemaining: newBatteryLevel,
+        lastUpdated: serverTimestamp() // Use server timestamp for accuracy
+      });
+      console.log("Successfully updated battery level in Firestore.");
+      // Optional: Show a success toast/notification to the user
+    } catch (error) {
+      console.error("Error updating battery level: ", error);
+      alert("Failed to update battery level. Please try again.");
+    }
+  };
   const stats = [
     {
       icon: Leaf,
@@ -336,23 +358,22 @@ const Dashboard: React.FC<DashboardProps> = ({ userData }) => {
       <div className="container-responsive">
         {/* --- Battery Status --- */}
         {/* --- Battery Status --- */}
-<motion.div
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
-  className="mb-8"
->
-  <BatteryEstimator 
-    userData={{
-      evName: vehicleBrand,
-      evModel: vehicleModel,
-      batteryRemaining: currentBattery
-    }}
-    onUpdate={(newBattery) => {
-      // You might want to update Firestore here
-      console.log("New battery level:", newBattery);
-    }}
-  />
-</motion.div>
+ <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <BatteryEstimator 
+            userData={{
+                id: userData.id,
+                evName: vehicleBrand,
+                evModel: vehicleModel,
+                batteryRemaining: userData.batteryRemaining,
+                vehicleRange: userData.vehicleRange, // Pass the max range
+            }}
+            onUpdateBattery={handleBatteryUpdate} // Pass the handler function
+          />
+        </motion.div>
 
         {/* --- AI Smart Recommendation --- */}
         {aiPickStation && (
